@@ -1,2 +1,62 @@
-# Aion-2-fera-discordbot
-Fera Bot for Discord &amp; AION 2
+# AION 2 Discord Bot
+
+Per-user daily/weekly checklists, group event planner, event timers and private links.
+
+## Adding it to a server
+Anyone with the invite link can add the bot. It works straight away, with no setup by the bot's owner:
+each server gets its own boss lists, links, manual timers, timer board and notices channel.
+Commands are global, so a brand-new command can take up to an hour to show up in Discord.
+
+Invite link: Developer Portal > Bot > turn on **Public Bot**. Then OAuth2 > URL Generator, scopes `bot` and
+`applications.commands`, permissions View Channels, Send Messages, Embed Links, Read Message History.
+
+On join the bot posts a short welcome message. Server managers can optionally run `/setup announcements` to pick a
+channel for reset and new-timer notices (off until chosen), and `/setup show` to see the settings.
+
+## Commands
+Checklists
+- `/checklist-setup` (Manage Server): post the checklist buttons in this channel.
+- `/checklist daily|weekly`: open your own checklist.
+
+Event planner
+- `/event create`: raid, world boss, arena, open world faction PvP, cross-territory rift or custom event.
+- Buttons on the event: Sign up / edit (Yes or Maybe as Tank, Healer or DPS, optional combat power), Leave, Alert me (private DM), Organizer (auto-sort into sub-parties, clear parties, cancel).
+- `/event list`, `/event edit`, `/event cancel`, `/event assign`, `/event autosort`, `/event alert`.
+- `/timezone set|show`: the timezone used for the times you type.
+
+Timers (from gamers4.life, refreshed every 15 minutes). Only the Global schedule is accepted (`TIMERS_REGION`); its times are UTC and the bot reads the timezone from the page.
+- `/timers show`, `/timers notify`, `/timers unnotify`, `/timers mine`, `/timers status`.
+- Manual fixes, shared with everyone: `/timers set` (moves the site's whole schedule for that timer by the difference, or `only_this_time:True` for one start, or `repeat:` for your own cycle), `/timers killed` (starts a respawn countdown, remembers the respawn length), `/timers clear` (back to the site's schedule).
+- `/timer-setup` (Manage Server): posts a live timer board in the channel, edited every `TIMER_BOARD_MINUTES` (default 2). `stop:True` removes it.
+- New rows on the site are tracked automatically and announced in each server's notices channel (if set). New world bosses also join every server's event planner boss list.
+
+DKP and gear (per server)
+- Players: `/dkp me`, `/dkp top`, `/dkp history`, `/gear list`, `/gear reserve`, `/gear unreserve`, `/gear queue`, `/gear mine`.
+- Officers (Manage Server or the officer role): `/dkp reward` (check-in button), `/dkp award-event`, `/dkp event-button` (Award and Undo buttons for an event), `/dkp award`, `/dkp award-role`, `/dkp take`, `/dkp undo`, `/dkp decay`, `/dkp export`, `/loot add|remove|award|clear`.
+- Managers: `/dkp-setup` (live board of everyone's DKP, no limit), `/dkp config` (max reservations, allow negative, officer role), `/dkp season confirm:True`.
+- Gear goes to the top reserver by DKP when `/loot award` runs; the winner is charged the item's cost.
+
+Links (only you see the reply)
+- `/link site`, `/links`.
+
+Admin (Manage Server)
+- `/setup announcements [channel]`, `/setup show`: optional notices channel and current settings.
+- `/eventlist add|remove|show`: raid and world boss lists.
+- `/linkadmin add|remove`: your own extra links.
+
+## Default event sizes
+Raid 10 (global first raid), Arena 4 (4v4), Faction PvP 10, World Boss 10, Rift 5, Custom 5.
+Sub-party size defaults to 5 (global party size), 4 for arena. Every event can override both.
+
+## Health check
+`http://SERVER_IP:8099/health` returns 200 when the bot is connected to Discord and 503 otherwise.
+
+## Run
+    docker compose up -d --build
+    docker logs -f aion2-checklist
+
+## Timer region check
+`docker compose exec aion2-checklist python inspect_timers.py` lists the region/server dropdown options the timers page offers.
+
+## Running the tests
+From the repo root: `pip install -r requirements.txt` then `for t in tests/test*.py; do python3 $t; done`. See `CLAUDE.md` for project notes.

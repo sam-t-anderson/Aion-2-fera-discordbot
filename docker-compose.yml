@@ -1,0 +1,11 @@
+services:
+  aion2-checklist:
+    build: .
+    container_name: aion2-checklist
+    restart: unless-stopped
+    init: true   # tiny init as PID 1 so finished health-check processes are reaped, not left as zombies
+    env_file: .env
+    ports:
+      - "${HEALTH_HOST_PORT:-8099}:8080"
+    volumes:
+      - ./data:/data

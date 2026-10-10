@@ -13,9 +13,10 @@ KEEP_BACKUPS="${KEEP_BACKUPS:-5}"
 # The checkout belongs to the account that installed the bot. Run Git as that account
 # so its SSH configuration and deploy key are available to the updater.
 GIT_OWNER="$(stat -c %U "$SRC")"
+GIT_HOME="$(getent passwd "$GIT_OWNER" | cut -d: -f6)"
 git_in_checkout() {
   if [ "$(id -u)" -eq 0 ] && [ "$GIT_OWNER" != root ]; then
-    runuser -u "$GIT_OWNER" -- git -C "$SRC" "$@"
+    runuser -u "$GIT_OWNER" -- env HOME="$GIT_HOME" git -C "$SRC" "$@"
   else
     git -C "$SRC" "$@"
   fi

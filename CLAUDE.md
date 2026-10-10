@@ -10,11 +10,13 @@ Python 3.12 (Docker), discord.py 2.x (installed unpinned `>=2.4,<3`; dev sandbox
 - `docker-compose.yml` has `init: true` (tini as PID 1) so Docker health-check processes don't pile up as zombies.
 
 ## Deploy / upgrade (Sam wants copy-paste commands, not "edit file X")
+Normally automatic: merging to `main` is the deploy. `deploy/aion2bot-update.sh` runs from a systemd timer every 15 min (`deploy/enable-updates.sh` installs it), and only installs a `main` commit whose GitHub Actions workflow named `CI` passed, so keep the tests green and don't rename that workflow. It copies `data/` to `data.bak-auto-*`, fast-forwards, runs `docker compose up -d --build` and waits for Docker's health check. Force a check with `sudo systemctl start aion2bot-update`; read the result with `sudo journalctl -u aion2bot-update -n 40 --no-pager`. The stack dir must stay a clean `main` checkout (no edits to tracked files on the server).
+
+By hand:
 ```bash
 cd /opt/stacks/aion2-checklist
 sudo cp -a data data.bak-$(date +%F)
-sudo tar xzf /home/sam/aion2-bot.tar.gz --strip-components=1 -C /opt/stacks/aion2-checklist   # or git pull
-sudo chown -R sam:sam /opt/stacks/aion2-checklist
+git pull --ff-only origin main
 docker compose up -d --build
 docker logs --tail 20 aion2-checklist | grep -v -i "pynacl\|davey"      # expect "Logged in as", "Timers ok"
 ```
@@ -30,6 +32,7 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 - `dkp.py` DKP: ledger, `/dkp` `/gear` `/loot`, check-in buttons, event award/undo panels (`/dkp event-button`), live full-list board (`/dkp-setup`).
 - `db.py` schema + migrations. `config.py` env settings. `health.py` health endpoint. `inspect_timers.py` diagnostic.
 - `docs/PLAYER-GUIDE.md` (+PDF) player docs; `docs/GUIDE-full.md` includes hosting notes.
+- `deploy/` self-updater (script, systemd service + timer, CI check). `.github/workflows/ci.yml` runs every test script.
 - `tests/` plain scripts, run each from the repo root: `python3 tests/test6.py` etc. Background `tasks.loop` "Client has not been properly initialised" tracebacks are harmless noise; each test prints an OK line at the end.
 
 ## Design rules and gotchas learned the hard way

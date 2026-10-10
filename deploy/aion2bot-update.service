@@ -1,0 +1,12 @@
+# Oneshot updater for the AION 2 bot. Installed by deploy/enable-updates.sh and triggered by
+# the timer. Run manually with: sudo systemctl start aion2bot-update
+[Unit]
+Description=Update the AION 2 Discord bot to the latest code
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=30min
+EnvironmentFile=/etc/aion2bot-update.env
+ExecStart=/usr/bin/env bash -c 'bash "$SRC/deploy/aion2bot-update.sh"'

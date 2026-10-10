@@ -1,0 +1,12 @@
+# Check for CI-verified main updates every fifteen minutes, including after downtime.
+[Unit]
+Description=Check for AION 2 Discord bot updates
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*-*-* *:00/15:00
+RandomizedDelaySec=90
+Persistent=true
+
+[Install]
+WantedBy=timers.target

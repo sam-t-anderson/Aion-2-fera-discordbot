@@ -55,6 +55,30 @@ Sub-party size defaults to 5 (global party size), 4 for arena. Every event can o
     docker compose up -d --build
     docker logs -f aion2-checklist
 
+## Automatic updates
+The server can update itself from `main`. A systemd timer checks every 15 minutes (and after a reboot); when `main`
+has a new commit whose GitHub Actions run (`CI`) passed, it copies `data/`, pulls, rebuilds the container and waits for
+the bot to report healthy.
+
+The stack folder must be a Git checkout of this repository on `main`. Turn it on once:
+
+    sudo bash deploy/enable-updates.sh
+
+- Update right now: `sudo systemctl start aion2bot-update`
+- See what it did: `sudo journalctl -u aion2bot-update -n 40 --no-pager`
+- Next check: `systemctl list-timers aion2bot-update.timer --no-pager`
+- Turn it off: `sudo systemctl disable --now aion2bot-update.timer`
+
+While the repository is private, the server needs two things: Git access for the account that owns the stack folder
+(a read-only deploy key works), and a fine-grained GitHub token limited to this repository with **Actions: Read-only**
+saved in `/etc/aion2bot-github-token` (owner root, mode 600) so the updater can read the CI result. A public repository
+needs neither.
+
+It refuses to run when tracked files were edited on the server or the checkout is not on `main`, and it defers while
+CI is pending or failed. A journal line saying "Finished" can also mean deferred: look for `updated ... and restarted`
+or `already installed and up to date`. Data copies are kept as `data.bak-auto-*` (newest 5). There is no automatic
+rollback: if the bot is not healthy after an update the updater reports it and tries again on the next check.
+
 ## Timer region check
 `docker compose exec aion2-checklist python inspect_timers.py` shows which region the timers page is serving and whether the bot accepts it.
 

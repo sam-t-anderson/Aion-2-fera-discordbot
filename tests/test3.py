@@ -24,7 +24,7 @@ def times(g, name, start=None, span=8*86400):
 async def main():
     db.init(); c = db.conn()
     assert db.ensure_guild(A) and not db.ensure_guild(A) and db.ensure_guild(B)
-    assert len(db.bosses(A, "raid")) == 4 and len(db.bosses(B, "world_boss")) == 6
+    assert len(db.bosses(A, "raid")) == 4 and "Eternal Gartua" in db.bosses(B, "world_boss", "gartua")
     rows = [("Spatial Rift","Rifts","every 3h from 02:00"),("Beritra Air Raid","Events","every hour at :30"),
             ("Watcher Kaira","World Bosses","every 1h")]
     n, new = timers.store_rules(rows)
@@ -39,15 +39,15 @@ async def main():
     assert timers.store_rules(rows + [("Brand New Boss","World Bosses","Wed, Sat at 22:00"), ("Strange Thing","Mystery","every 2h")])[1] == []
     timers.store_rules(rows)
 
-    timers.rebuild_occurrences()
+    timers.purge_old()
     base = times(A, "Spatial Rift"); assert len(base) > 10 and times(B, "Spatial Rift") == base
-    nxt = timers.scraped_next("every 3h from 02:00")
+    nxt = timers.scraped_next("every 3h from 02:00", timers.guild_tz(A))
     mine = int(time.time()) + 3600 + 7
     timers.save_manual(A, "Spatial Rift", "Rifts", mine, None, nxt, None, 42)
     ts = times(A, "Spatial Rift")
     assert mine in ts and nxt not in ts and len(ts) == len(base)
     assert times(B, "Spatial Rift") == base                   # server B is untouched
-    timers.rebuild_occurrences()                              # a refetch keeps the manual time
+    timers.purge_old()                              # a refetch keeps the manual time
     assert mine in times(A, "Spatial Rift")
     timers.clear_manual(A, "spatial rift"); assert times(A, "Spatial Rift") == base
 
@@ -71,7 +71,8 @@ async def main():
 
     # notifications use the subscriber's server
     now = int(time.time())
-    c.execute("DELETE FROM timer_events"); c.execute("INSERT INTO timer_events VALUES ('Watcher Kaira','World Bosses',?)", (now + 120,)); c.commit()
+    c.execute("DELETE FROM timer_rules"); c.commit()
+    for g in (A, B): timers.save_manual(g, "Watcher Kaira", "World Bosses", now + 120, None, None, None, 1)
     c.execute("INSERT INTO guild_timer_subs VALUES (?,5,'category','world bosses',5)", (A,))
     c.execute("INSERT INTO guild_timer_subs VALUES (?,6,'name','Watcher Kaira',1)", (B,)); c.commit()
     sent = []
@@ -86,8 +87,7 @@ async def main():
     assert [i for i, _ in sent] == [5], sent                  # user 6 wants 1 min before
     await timers.Timers.notify_loop.coro(cog); assert len(sent) == 1   # not twice
     # a manual one-shot in server B moves the time for B's subscriber only
-    c.execute("UPDATE timer_events SET starts_at=? WHERE name='Watcher Kaira'", (now + 70,)); c.commit()
-    timers.save_manual(B, "Watcher Kaira", "World Bosses", now + 30, None, now + 70, None, 1)
+    timers.save_manual(B, "Watcher Kaira", "World Bosses", now + 30, None, None, None, 1)
     c.execute("DELETE FROM timer_notified"); c.commit(); sent.clear()
     await timers.Timers.notify_loop.coro(cog)
     assert sorted(i for i, _ in sent) == [5, 6], sent
@@ -108,7 +108,7 @@ async def main():
 
     # huge list stays within Discord limits
     timers.store_rules([(f"Boss number {i} with a fairly long name", "World Bosses", "every 2h") for i in range(150)])
-    timers.rebuild_occurrences()
+    timers.purge_old()
     d = timers.build_embed(B, max_chars=5900).to_dict()
     total = len(d["title"]) + len(d["description"]) + len(d.get("footer", {}).get("text", "")) + sum(len(f["name"])+len(f["value"]) for f in d["fields"])
     assert total <= 6000 and len(d["fields"]) <= 25 and "more not shown" in d["footer"]["text"], total

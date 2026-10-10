@@ -11,7 +11,7 @@ Invite link: Developer Portal > Bot > turn on **Public Bot**. Then OAuth2 > URL 
 `applications.commands`, permissions View Channels, Send Messages, Embed Links, Read Message History.
 
 On join the bot posts a short welcome message. Server managers can optionally run `/setup announcements` to pick a
-channel for reset and new-timer notices (off until chosen), and `/setup show` to see the settings.
+channel for reset and new-timer notices (off until chosen), `/setup region` to pick the game region whose server clock timers and resets follow (NA East until chosen), and `/setup show` to see the settings.
 
 ## Commands
 Checklists
@@ -24,9 +24,9 @@ Event planner
 - `/event list`, `/event edit`, `/event cancel`, `/event assign`, `/event autosort`, `/event alert`.
 - `/timezone set|show`: the timezone used for the times you type.
 
-Timers (from gamers4.life, refreshed every 15 minutes). Only the Global schedule is accepted (`TIMERS_REGION`); its times are UTC and the bot reads the timezone from the page.
+Timers (from gamers4.life, refreshed every 15 minutes). Only the Global schedule is accepted (`TIMERS_REGION`). Each Global region runs it on its own server clock, so every Discord server picks its region with `/setup region` (default `TIMERS_DEFAULT_REGION`, NA East). The checklist resets follow the site's Daily Reset and Weekly Reset timers, including any `/timers set` correction.
 - `/timers show`, `/timers notify`, `/timers unnotify`, `/timers mine`, `/timers status`.
-- Manual fixes, shared with everyone: `/timers set` (moves the site's whole schedule for that timer by the difference, or `only_this_time:True` for one start, or `repeat:` for your own cycle), `/timers killed` (starts a respawn countdown, remembers the respawn length), `/timers clear` (back to the site's schedule).
+- Manual fixes, shared with everyone: `/timers set` (moves the site's whole schedule for that timer by the difference, or `only_this_time:True` for one start, or `repeat:` for your own cycle), `/timers killed` (starts a respawn countdown; knows the Verteron and Altgard field boss respawns and remembers any other length), `/timers clear` (back to the site's schedule).
 - `/timer-setup` (Manage Server): posts a live timer board in the channel, edited every `TIMER_BOARD_MINUTES` (default 2). `stop:True` removes it.
 - New rows on the site are tracked automatically and announced in each server's notices channel (if set). New world bosses also join every server's event planner boss list.
 
@@ -40,7 +40,7 @@ Links (only you see the reply)
 - `/link site`, `/links`.
 
 Admin (Manage Server)
-- `/setup announcements [channel]`, `/setup show`: optional notices channel and current settings.
+- `/setup announcements [channel]`, `/setup region`, `/setup show`: optional notices channel, game region and current settings.
 - `/eventlist add|remove|show`: raid and world boss lists.
 - `/linkadmin add|remove`: your own extra links.
 
@@ -56,7 +56,7 @@ Sub-party size defaults to 5 (global party size), 4 for arena. Every event can o
     docker logs -f aion2-checklist
 
 ## Timer region check
-`docker compose exec aion2-checklist python inspect_timers.py` lists the region/server dropdown options the timers page offers.
+`docker compose exec aion2-checklist python inspect_timers.py` shows which region the timers page is serving and whether the bot accepts it.
 
 ## Running the tests
 From the repo root: `pip install -r requirements.txt` then `for t in tests/test*.py; do python3 $t; done`. See `CLAUDE.md` for project notes.

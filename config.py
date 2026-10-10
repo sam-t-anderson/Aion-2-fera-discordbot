@@ -21,7 +21,8 @@ GUILD_ID = os.getenv("GUILD_ID", "").strip()
 ANNOUNCE_CHANNEL_ID = os.getenv("ANNOUNCE_CHANNEL_ID", "").strip()
 DB_PATH = os.getenv("DB_PATH", "/data/checklist.db")
 
-# Checklist resets. RESET_UTC_HOUR 13 = 7:00 AM MDT / 6:00 AM MST.
+# Checklist resets, used only while the timers site lists no "Daily Reset" / "Weekly Reset"
+# (normally the checklist follows those timers). RESET_UTC_HOUR 13 = 7:00 AM MDT / 6:00 AM MST.
 RESET_UTC_HOUR = _int("RESET_UTC_HOUR", 13)
 WEEKLY_RESET_WEEKDAY = _int("WEEKLY_RESET_WEEKDAY", 0)  # Monday=0 ... Sunday=6
 
@@ -34,6 +35,9 @@ TIMERS_URL = os.getenv("TIMERS_URL", "https://gamers4.life/aion-2/database/en/ev
 # "*" tracks every category the site lists, including ones added later.
 # Which game version's schedule to use. The page states it; anything else is refused.
 TIMERS_REGION = os.getenv("TIMERS_REGION", "Global").strip() or "Global"
+# The region clock a Discord server follows until its managers pick one with /setup region:
+# na (NA East), naw (NA West), eu, sa or jp.
+TIMERS_DEFAULT_REGION = os.getenv("TIMERS_DEFAULT_REGION", "na").strip().lower() or "na"
 TIMER_CATEGORIES = _csv("TIMER_CATEGORIES", "*")
 TIMER_REFRESH_MINUTES = max(5, _int("TIMER_REFRESH_MINUTES", 15))
 TIMER_BOARD_MINUTES = max(1, _int("TIMER_BOARD_MINUTES", 2))

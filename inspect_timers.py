@@ -1,4 +1,4 @@
-"""Shows what the timers page offers for choosing a region or server version, so the bot can read the Global one.
+"""Shows which region's schedule the timers page is serving and whether the bot accepts it.
 
 Run on the server:  docker compose exec aion2-checklist python inspect_timers.py
 """
@@ -19,7 +19,7 @@ try:
 
     region, offset = timers.parse_page_meta(html)
     print(f"Region the page shows: {region!r}, schedule clock offset: {offset} minutes from UTC")
-    print(f"Bot wants: {config.TIMERS_REGION!r} -> {'OK' if (region or '').lower() == config.TIMERS_REGION.lower() else 'MISMATCH, the bot would ignore this page'}")
+    print(f"Bot wants: {config.TIMERS_REGION!r} -> {'OK' if timers.page_accepted(region) else 'MISMATCH, the bot would ignore this page'}")
     print(f"Schedule rows found: {len(timers.parse_table(html))}\n")
 except Exception as e:  # the checks below still run
     print("Could not run the bot's own parser:", e, "\n")

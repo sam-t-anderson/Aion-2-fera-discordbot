@@ -8,7 +8,7 @@ import db, timers
 async def main():
     db.init(); db.ensure_guild(1)
     db.conn().execute("INSERT INTO timer_rules (name, category, timing) VALUES ('Executor Argo','World Bosses','Mon, Thu, Sat at 21:30')"); db.conn().commit()
-    timers.rebuild_occurrences()
+    timers.purge_old()
     bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
     cog = timers.Timers(bot)
     nxt = min(t for n, _c, t in timers.events_between(1, int(__import__("time").time()), int(__import__("time").time()) + 8 * 86400) if n == "Executor Argo")

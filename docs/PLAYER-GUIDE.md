@@ -6,7 +6,7 @@ The bot gives each player a private daily and weekly checklist, plans group even
 
 Anyone with the invite link can add the bot to their server, and it works right away. Nothing needs configuring. Each server has its own event boss lists, links, manual timers, timer board and notices channel, so servers never affect each other.
 
-On joining, the bot posts a short welcome message. Commands are global, so brand-new commands can take up to an hour to appear in Discord. Server managers can optionally run `/setup announcements` to choose a channel for checklist reset and new-timer notices. Those notices are off until a channel is chosen. `/setup show` lists the current settings.
+On joining, the bot posts a short welcome message. Commands are global, so brand-new commands can take up to an hour to appear in Discord. Server managers can optionally run `/setup announcements` to choose a channel for checklist reset and new-timer notices. Those notices are off until a channel is chosen. `/setup region` picks the game region (NA East, NA West, EU, SA or JP) whose server clock the timers and checklist resets follow; it is NA East until a manager chooses. `/setup show` lists the current settings.
 
 ## Checklists
 
@@ -14,8 +14,8 @@ Every player ticks their own daily and weekly items, and nobody else sees them.
 
 - Press the **Open** buttons on the checklist message, or type `/checklist` and pick daily or weekly. Only you can see your list.
 - Tick items with the buttons. Items with several runs (like 5 duties) count up one press at a time, and there is a button to complete a whole list.
-- Progress clears itself at reset: daily every day at 13:00 UTC (7:00 AM MDT or 6:00 AM MST), weekly on Monday at the same hour.
-- The reset hour and weekly day are server settings (`RESET_UTC_HOUR`, `WEEKLY_RESET_WEEKDAY`).
+- Progress clears itself at reset. The checklist follows the **Daily Reset** and **Weekly Reset** timers for your server's game region, and shows when the next reset is.
+- If the reset time is wrong, fix the Daily Reset or Weekly Reset timer with `/timers set` and the checklist follows it.
 
 Admins post the buttons once with `/checklist-setup` in the channel people should use.
 
@@ -60,7 +60,7 @@ Raid, world boss and custom events need a `name`. For raids and world bosses, pi
 
 ## Timers
 
-The bot reads the event schedule on gamers4.life (https://gamers4.life/aion-2/database/en/events/) every 15 minutes and keeps it for a week. The bot only accepts the Global version of the schedule, which the site lists in UTC. The site publishes recurring schedules only and does not know individual boss respawns. Manual timers fill that gap.
+The bot reads the event schedule on gamers4.life (https://gamers4.life/aion-2/database/en/events/) every 15 minutes and keeps it for a week. The bot only accepts the Global version of the schedule. Each Global region (NA East, NA West, EU, SA, JP) runs that schedule on its own server clock, so a server manager picks the region with `/setup region` (NA East until then). The site publishes recurring schedules only and does not know individual boss respawns. Manual timers fill that gap.
 
 **Viewing**
 
@@ -71,7 +71,7 @@ The bot reads the event schedule on gamers4.life (https://gamers4.life/aion-2/da
 **Fixing or adding a time (shared with everyone)**
 
 - `/timers set name when`: sets when a timer starts. If the site lists that timer, every start moves by the same amount (up to 12 hours either way) and stays that way until you `/timers clear` it. Add `only_this_time:True` to change just one start, or `repeat:4h` to make it repeat. Without a site schedule it creates a new timer with the `category` you pick.
-- `/timers killed name`: a boss just died, so its respawn countdown starts now. Add `respawn:4h` the first time. The bot remembers the length for next time.
+- `/timers killed name`: a boss just died, so its respawn countdown starts now. The bot knows the respawn of the Verteron and Altgard field bosses (Eternal Gartua, Soul Ruler Kashapa and so on), so pick the name from the list and you are done. Silent Dartan and High Commander Lagta respawn at different speeds in each zone, so pick the one with your zone in its name. For any other boss add `respawn:4h` the first time. The bot remembers the length for next time.
 - `/timers clear name`: removes the manual time and goes back to the site's schedule. Only the person who set it or a server manager can clear it.
 - The list shows who set each manual time.
 
@@ -163,6 +163,7 @@ These commands need the **Manage Server** permission. Their replies are private 
 | `/checklist-setup` | Posts the checklist buttons in this channel |
 | `/timer-setup` | Posts the live timer board here (`stop:True` removes it) |
 | `/setup announcements` | Picks the channel for reset and new-timer notices (leave empty to turn off) |
+| `/setup region` | Picks the game region whose server clock the timers and checklist resets follow |
 | `/setup show` | Shows this server's settings |
 | `/eventlist add` | Adds a raid or world boss name to the event planner list |
 | `/eventlist remove` | Removes one from the list |
@@ -171,4 +172,4 @@ These commands need the **Manage Server** permission. Their replies are private 
 | `/linkadmin remove` | Removes a custom link |
 | `/timers clear` | Clears anyone's manual timer |
 
-The built-in raids are The Abyssal Reactor (Fusion Reactor), Isolation Specialist Rahu, Abyssal Wings Ketu and Eternal Ludra. The built-in world bosses are Kallon the Broken, Gorgon of the Ridge, Captain Maras, The Morheim Dreadborn, The Balaur Commander and Anomalous Shard.
+The built-in raids are Central Abyss Fusion Reactor, Isolation Specialist Rahu, Abyssal Wings Ketu and Eternal Ludra. The built-in world bosses are the Verteron and Altgard field bosses (Eternal Gartua, Immortal Gartua, High Commander Lagta, Soul Ruler Kashapa, Silent Dartan and the rest), plus the Abyss bosses the timers site lists.

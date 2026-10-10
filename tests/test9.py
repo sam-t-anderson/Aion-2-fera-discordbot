@@ -14,7 +14,7 @@ def msg_payload(view):
             "pinned": False, "type": 0, "flags": 64, "components": view.to_components()}
 
 async def press(bot, uid, kind, item):
-    shown = checklist.build_view(kind, checklist.get_counts(uid, kind))
+    shown = checklist.build_view(kind, checklist.get_counts(uid, kind, 1))
     ch = MagicMock(); ch.id = 9
     message = discord.Message(state=bot._connection, channel=ch, data=msg_payload(shown))
     cid = f"cl:tick:{kind}:{item}"
@@ -33,9 +33,9 @@ async def main():
     for _ in range(4):
         it = await press(bot, 42, "daily", "nightmare")
         assert it.response.edit_message.await_count == 1, "button did nothing"
-        seen.append(checklist.get_counts(42, "daily").get("nightmare", 0))
+        seen.append(checklist.get_counts(42, "daily", 1).get("nightmare", 0))
     assert seen == [1, 2, 0, 1], seen            # 0/2 -> 1/2 -> 2/2 -> clears -> 1/2
     await press(bot, 42, "weekly", "dd")
-    assert checklist.get_counts(42, "weekly")["dd"] == 1
+    assert checklist.get_counts(42, "weekly", 1)["dd"] == 1
     print("CHECKLIST BUTTONS OK", seen)
 asyncio.run(main())

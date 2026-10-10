@@ -3,8 +3,10 @@
 import os
 import sqlite3
 import time
+from datetime import datetime, timedelta, timezone
 
 import config
+import gamedata
 
 _conn: sqlite3.Connection | None = None
 
@@ -25,6 +27,7 @@ CREATE TABLE IF NOT EXISTS guild_settings (
     announce_channel INTEGER,
     board_channel INTEGER,
     board_message INTEGER,
+    timer_region TEXT,
     joined_at INTEGER NOT NULL);
 
 CREATE TABLE IF NOT EXISTS guild_bosses (
@@ -72,13 +75,6 @@ CREATE TABLE IF NOT EXISTS timer_rules (
     name TEXT PRIMARY KEY,
     category TEXT NOT NULL,
     timing TEXT NOT NULL);
-
-CREATE TABLE IF NOT EXISTS timer_events (
-    name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    starts_at INTEGER NOT NULL,
-    PRIMARY KEY (name, starts_at));
-CREATE INDEX IF NOT EXISTS timer_events_start ON timer_events (starts_at);
 
 CREATE TABLE IF NOT EXISTS timer_catalog (
     name TEXT PRIMARY KEY COLLATE NOCASE,
@@ -188,20 +184,19 @@ CREATE TABLE IF NOT EXISTS timer_notified (
 
 PREBUILT_BOSSES = {
     "raid": [
-        "The Abyssal Reactor (Fusion Reactor)",
+        "Central Abyss Fusion Reactor",
         "Isolation Specialist Rahu",
         "Abyssal Wings Ketu",
         "Eternal Ludra",
     ],
-    "world_boss": [
-        "Kallon the Broken",
-        "Gorgon of the Ridge",
-        "队长 (Captain) Maras",
-        "The Morheim Dreadborn",
-        "The Balaur Commander",
-        "Anomalous Shard",
-    ],
+    "world_boss": gamedata.field_boss_names(),
 }
+# Names earlier versions shipped that aren't in the game, and what replaces them.
+_OLD_RAID_NAMES = {"The Abyssal Reactor (Fusion Reactor)": "Central Abyss Fusion Reactor"}
+_OLD_WORLD_BOSSES = (
+    "Kallon the Broken", "Gorgon of the Ridge", "队长 (Captain) Maras",
+    "The Morheim Dreadborn", "The Balaur Commander", "Anomalous Shard",
+)
 
 
 def conn() -> sqlite3.Connection:
@@ -224,10 +219,61 @@ def init(path: str | None = None) -> None:
         _conn.execute("ALTER TABLE guild_timer_manual ADD COLUMN shift_sec INTEGER")
     if not any(r["name"] == "batch_id" for r in _conn.execute("PRAGMA table_info(dkp_ledger)").fetchall()):
         _conn.execute("ALTER TABLE dkp_ledger ADD COLUMN batch_id INTEGER")
+    if not any(r["name"] == "timer_region" for r in _conn.execute("PRAGMA table_info(guild_settings)").fetchall()):
+        _conn.execute("ALTER TABLE guild_settings ADD COLUMN timer_region TEXT")
+    _conn.execute("DROP TABLE IF EXISTS timer_events")  # start times are worked out per server region now
     _conn.commit()
     _migrate_single_server()
-    if meta_get("timers_tz_min") is None:
-        meta_delete("timers_etag")  # earlier versions assumed GMT+8; read the page again and take its timezone
+    _migrate_regions()
+    _migrate_boss_names()
+    _migrate_progress_stamps()
+
+
+def _migrate_regions() -> None:
+    """The schedule used to be read as UTC; it is each region's own server clock. Corrections
+    that moved a site timer were made against the wrong clock, so they are dropped (runs once)."""
+    if meta_get("timer_regions_v1"):
+        return
+    _conn.execute("DELETE FROM guild_timer_manual WHERE shift_sec IS NOT NULL")
+    _conn.commit()
+    meta_delete("timers_tz_min")
+    meta_set("timer_regions_v1", str(int(time.time())))
+
+
+def _migrate_boss_names() -> None:
+    """Swap the placeholder boss names of earlier versions for the real ones (runs once)."""
+    if meta_get("boss_names_v2"):
+        return
+    c = _conn
+    for gid in [r["guild_id"] for r in c.execute("SELECT guild_id FROM guild_settings").fetchall()]:
+        for old, new in _OLD_RAID_NAMES.items():
+            c.execute("UPDATE OR IGNORE guild_bosses SET name=? WHERE guild_id=? AND kind='raid' AND name=?", (new, gid, old))
+            c.execute("DELETE FROM guild_bosses WHERE guild_id=? AND kind='raid' AND name=?", (gid, old))
+        for old in _OLD_WORLD_BOSSES:
+            c.execute("DELETE FROM guild_bosses WHERE guild_id=? AND kind='world_boss' AND name=?", (gid, old))
+        for name in PREBUILT_BOSSES["world_boss"]:
+            c.execute("INSERT OR IGNORE INTO guild_bosses (guild_id, kind, name) VALUES (?, 'world_boss', ?)", (gid, name))
+    c.commit()
+    meta_set("boss_names_v2", str(int(time.time())))
+
+
+def _migrate_progress_stamps() -> None:
+    """Checklist progress used to be tagged with its period's date; it is now tagged with
+    when it was last ticked. Progress from the period in force is kept (runs once)."""
+    if meta_get("progress_stamps_v1"):
+        return
+    c = _conn
+    now = datetime.now(timezone.utc)
+    day = (now - timedelta(hours=config.RESET_UTC_HOUR)).date()
+    current = {
+        "daily": day.isoformat(),
+        "weekly": (day - timedelta(days=(day.weekday() - config.WEEKLY_RESET_WEEKDAY) % 7)).isoformat(),
+    }
+    for kind, period in current.items():
+        c.execute("UPDATE progress SET period=? WHERE kind=? AND period=?", (str(int(now.timestamp())), kind, period))
+    c.execute("DELETE FROM progress WHERE period LIKE '%-%'")
+    c.commit()
+    meta_set("progress_stamps_v1", str(int(time.time())))
 
 
 def meta_get(key: str) -> str | None:
@@ -335,7 +381,7 @@ def guild_ids() -> list[int]:
 
 
 def get_setting(guild_id: int, column: str):
-    assert column in ("announce_channel", "board_channel", "board_message")
+    assert column in ("announce_channel", "board_channel", "board_message", "timer_region")
     row = conn().execute(f"SELECT {column} FROM guild_settings WHERE guild_id=?", (guild_id,)).fetchone()
     return row[column] if row else None
 
@@ -343,7 +389,7 @@ def get_setting(guild_id: int, column: str):
 def set_settings(guild_id: int, **values) -> None:
     ensure_guild(guild_id)
     for column in values:
-        assert column in ("announce_channel", "board_channel", "board_message")
+        assert column in ("announce_channel", "board_channel", "board_message", "timer_region")
     sets = ", ".join(f"{k}=?" for k in values)
     conn().execute(f"UPDATE guild_settings SET {sets} WHERE guild_id=?", (*values.values(), guild_id))
     conn().commit()

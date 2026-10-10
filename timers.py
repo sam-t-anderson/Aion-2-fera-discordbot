@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import aiohttp
 import discord
@@ -18,40 +19,57 @@ from discord.ext import commands, tasks
 
 import config
 import db
+import gamedata
 import util
 
 log = logging.getLogger("aion2.timers")
 
-# The page states which timezone its schedule uses (Global runs on UTC). We read it from the page.
-GMT8 = timezone(timedelta(hours=8))
-R_HEADING = re.compile(
-    r"Full schedule\s*\(\s*server time\s*[·|-]\s*([^)<]+?)\s*\)(.*?)</", re.I | re.S
-)
+# Every Global region runs the same schedule on its own local server clock. The page shows one
+# region (and says which); the clock times in its table apply to each region's own timezone.
+R_HEADING = re.compile(r"Full schedule\s*\(\s*server time(?:\s*[·|-]\s*([^)<]+?))?\s*\)(.*?)</", re.I | re.S)
+R_CLOCK = re.compile(r"(?:UTC|GMT)\s*(?:([+-])\s*(\d{1,2})(?::(\d{2}))?)?", re.I)
 
 
 def parse_page_meta(html: str) -> tuple[Optional[str], Optional[int]]:
-    """Read the schedule heading, like "Full schedule (server time · UTC) · Global".
-    Returns (region name or None, timezone offset in minutes or None)."""
+    """Read the schedule heading, like "Full schedule (server time) · North America (East) · UTC-4".
+    Returns (region name or None, that region's clock offset in minutes or None)."""
     m = R_HEADING.search(html)
     if not m:
         return None, None
-    label = m.group(1).strip()
     rest = re.sub(r"<!--.*?-->", "", m.group(2), flags=re.S)
-    rest = " ".join(re.sub(r"<[^>]+>", " ", rest).split()).strip(" ·|-")
-    region = rest or None
-    tz = re.fullmatch(r"(?:UTC|GMT)\s*(?:([+-])\s*(\d{1,2})(?::(\d{2}))?)?", label, re.I)
-    offset = None
-    if tz:
-        offset = 0
-        if tz.group(1):
-            offset = (int(tz.group(2)) * 60 + int(tz.group(3) or 0)) * (1 if tz.group(1) == "+" else -1)
-    return region, offset
+    parts = [m.group(1) or ""] + re.sub(r"<[^>]+>", " ", rest).split("·")
+    region, offset = [], None
+    for part in (" ".join(p.split()).strip(" |-") for p in parts):
+        tz = R_CLOCK.fullmatch(part)
+        if tz:
+            offset = 0
+            if tz.group(1):
+                offset = (int(tz.group(2)) * 60 + int(tz.group(3) or 0)) * (1 if tz.group(1) == "+" else -1)
+        elif part:
+            region.append(part)
+    return " · ".join(region) or None, offset
 
 
-def schedule_tz() -> timezone:
-    """The timezone the stored schedule is written in."""
-    v = db.meta_get("timers_tz_min")
-    return timezone(timedelta(minutes=int(v))) if v not in (None, "") else timezone.utc
+def page_accepted(region: Optional[str]) -> bool:
+    """Whether the page shows the schedule the bot wants (TIMERS_REGION, normally Global)."""
+    want = config.TIMERS_REGION.strip().lower()
+    if not want or not region:
+        return True
+    if want == "global":
+        return region.lower() not in (r.lower() for r in gamedata.OTHER_REGIONS)
+    return region.lower() == want
+
+
+def region_key(guild_id: int) -> str:
+    key = db.get_setting(guild_id, "timer_region") or config.TIMERS_DEFAULT_REGION
+    return key if key in gamedata.REGIONS else "na"
+
+
+def guild_tz(guild_id: int) -> ZoneInfo:
+    """The server clock of the region this Discord server plays on (set with /setup region)."""
+    return ZoneInfo(gamedata.REGIONS[region_key(guild_id)][2])
+
+
 DAYS = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 WINDOW_DAYS = 8
 CATEGORY_CHOICES = [
@@ -109,6 +127,7 @@ R_FROM = re.compile(r"every\s+(\d+)\s*h(?:ours?)?\s+from\s+(\d{1,2}):(\d{2})", r
 R_HOURAT = re.compile(r"every\s+hour\s+at\s+:(\d{2})", re.I)
 R_EVERY = re.compile(r"every\s+(\d+)\s*h(?:ours?)?$", re.I)
 R_WEEKLY = re.compile(rf"^({_DAY}(?:\s*,\s*{_DAY})*)\s+at\s+(\d{{1,2}}):(\d{{2}})$", re.I)
+R_DAILY = re.compile(r"^daily\s+at\s+(\d{1,2}:\d{2}(?:\s*,\s*\d{1,2}:\d{2})*)$", re.I)
 
 
 def parse_rule(text: str) -> Optional[dict]:
@@ -127,32 +146,46 @@ def parse_rule(text: str) -> Optional[dict]:
     if m:
         days = sorted({DAYS[d.strip()[:3].lower()] for d in m.group(1).split(",")})
         return {"type": "weekly", "days": days, "h": int(m.group(2)), "m": int(m.group(3))}
+    m = R_DAILY.fullmatch(t)
+    if m:
+        times = sorted({(int(h), int(mi)) for h, mi in (p.strip().split(":") for p in m.group(1).split(","))})
+        return {"type": "daily", "times": [list(x) for x in times]}
     return None
+
+
+def _day_times(rule: dict, weekday: int) -> list[tuple[int, int]]:
+    """Clock times a rule starts at on one day of the server's calendar."""
+    if rule["type"] == "daily":
+        return [(h, m) for h, m in rule["times"]]
+    if rule["type"] == "weekly":
+        return [(rule["h"], rule["m"])] if weekday in rule["days"] else []
+    step = rule["hours"] * 60
+    return [divmod(x, 60) for x in range((rule["h"] * 60 + rule["m"]) % step, 1440, step)]
 
 
 def occurrences(rule: dict, start: datetime, end: datetime, tz: timezone = timezone.utc) -> list[datetime]:
     """All start times (UTC) of a rule between start (inclusive) and end (exclusive).
     The rule's clock times are in tz, the timezone the page uses."""
     out: list[datetime] = []
-    if rule["type"] == "interval":
+    if rule["type"] == "interval" and 1440 % (rule["hours"] * 60):
+        # doesn't fit a day evenly, so it can't follow the clock: count from a fixed start
         anchor = datetime(2026, 1, 5, rule["h"], rule["m"], tzinfo=tz)
         step = timedelta(hours=rule["hours"])
         k = max(0, -(-int((start - anchor).total_seconds()) // int(step.total_seconds())))
         t = anchor + k * step
         while t < end:
-            if t >= start:
-                out.append(t.astimezone(timezone.utc))
+            out.append(t.astimezone(timezone.utc))
             t += step
-    else:
-        day = (start.astimezone(tz) - timedelta(days=1)).date()
-        last = end.astimezone(tz).date()
-        while day <= last:
-            if day.weekday() in rule["days"]:
-                t = datetime(day.year, day.month, day.day, rule["h"], rule["m"], tzinfo=tz)
-                if start <= t < end:
-                    out.append(t.astimezone(timezone.utc))
-            day += timedelta(days=1)
-    return out
+        return out
+    day = (start.astimezone(tz) - timedelta(days=1)).date()
+    last = end.astimezone(tz).date()
+    while day <= last:
+        for h, m in _day_times(rule, day.weekday()):
+            t = datetime(day.year, day.month, day.day, h, m, tzinfo=tz)
+            if start <= t < end:
+                out.append(t.astimezone(timezone.utc))
+        day += timedelta(days=1)
+    return sorted(out)
 
 
 # ---------------------------------------------------------------- storage: scraped timers
@@ -199,6 +232,13 @@ def store_rules(rows: list[tuple[str, str, str]], now_ts: Optional[int] = None):
 
 
 # ---------------------------------------------------------------- storage: manual timers (per server)
+FIELD_RESPAWNS = gamedata.field_boss_respawns()  # built-in field bosses: timer name -> respawn minutes
+
+
+def field_respawn(name: str) -> Optional[int]:
+    return next((mins for known, mins in FIELD_RESPAWNS.items() if known.lower() == name.lower()), None)
+
+
 def canonical(guild_id: int, name: str):
     """Match a typed name to a known timer. Returns (name, category or None, scraped timing or None)."""
     c = db.conn()
@@ -213,31 +253,34 @@ def canonical(guild_id: int, name: str):
     b = c.execute(
         "SELECT name FROM guild_bosses WHERE guild_id=? AND kind='world_boss' AND name = ? COLLATE NOCASE", (guild_id, name)
     ).fetchone()
+    for known in list(FIELD_RESPAWNS) + gamedata.field_boss_names():
+        if known.lower() == name.lower():
+            return known, "Field Bosses", None
     if b:
         return b["name"], "World Bosses", None
     return name, None, None
 
 
-def scraped_next(timing: Optional[str], now: Optional[datetime] = None) -> Optional[int]:
-    """The next time the site's schedule would start this timer."""
+def scraped_next(timing: Optional[str], tz, now: Optional[datetime] = None) -> Optional[int]:
+    """The next time the site's schedule would start this timer on a server clock."""
     rule = parse_rule(timing) if timing else None
     if not rule:
         return None
     now = now or datetime.now(timezone.utc)
-    occ = occurrences(rule, now, now + timedelta(days=WINDOW_DAYS), schedule_tz())
+    occ = occurrences(rule, now, now + timedelta(days=WINDOW_DAYS), tz)
     return int(occ[0].timestamp()) if occ else None
 
 
 MAX_SHIFT_SEC = 12 * 3600
 
 
-def nearest_site_time(timing: Optional[str], ts: int) -> Optional[int]:
+def nearest_site_time(timing: Optional[str], ts: int, tz) -> Optional[int]:
     """The site's start time (any day, past or future) closest to ts."""
     rule = parse_rule(timing) if timing else None
     if not rule:
         return None
     centre = datetime.fromtimestamp(ts, timezone.utc)
-    occ = occurrences(rule, centre - timedelta(days=8), centre + timedelta(days=8), schedule_tz())
+    occ = occurrences(rule, centre - timedelta(days=8), centre + timedelta(days=8), tz)
     return min((int(o.timestamp()) for o in occ), key=lambda x: abs(x - ts)) if occ else None
 
 
@@ -277,65 +320,59 @@ def manual_times(m, now_ts: int, end_ts: int) -> list[int]:
 
 
 def events_between(guild_id: int, start_ts: int, end_ts: int) -> list[tuple[str, str, int]]:
-    """Every (name, category, start) in the window for one server: the site's schedule with
-    that server's manual timers layered on top.
+    """Every (name, category, start) in the window for one server: the site's schedule on
+    that server's region clock, with its manual timers layered on top.
 
     A manual timer can be a "shift": every start the site lists for that name is moved by
     the same amount, so the override survives restarts and refreshes of the site schedule."""
     c = db.conn()
+    tz = guild_tz(guild_id)
     manual = {
         m["name"].lower(): m
         for m in c.execute("SELECT * FROM guild_timer_manual WHERE guild_id=?", (guild_id,)).fetchall()
     }
     out = []
-    for r in c.execute(
-        "SELECT name, category, starts_at FROM timer_events WHERE starts_at >= ? AND starts_at < ?", (start_ts, end_ts)
-    ).fetchall():
+    for r in c.execute("SELECT name, category, timing FROM timer_rules").fetchall():
+        rule = parse_rule(r["timing"])
         m = manual.get(r["name"].lower())
-        if m and (m["shift_sec"] is not None or m["interval_min"] or r["starts_at"] == m["replaces_at"]):
+        if not rule or (m and m["interval_min"]):
             continue
-        out.append((r["name"], r["category"], r["starts_at"]))
+        sh = m["shift_sec"] if m and m["shift_sec"] is not None else 0
+        a = datetime.fromtimestamp(start_ts - sh, timezone.utc)
+        b = datetime.fromtimestamp(end_ts - sh, timezone.utc)
+        for t in occurrences(rule, a, b, tz):
+            ts = int(t.timestamp())
+            if m and m["shift_sec"] is None and ts == m["replaces_at"]:
+                continue
+            out.append((r["name"], r["category"], ts + sh))
     for m in manual.values():
-        if m["shift_sec"] is not None:
-            sh = m["shift_sec"]
-            for r in c.execute(
-                "SELECT starts_at FROM timer_events WHERE name = ? COLLATE NOCASE AND starts_at >= ? AND starts_at < ?",
-                (m["name"], start_ts - sh, end_ts - sh),
-            ).fetchall():
-                out.append((m["name"], m["category"], r["starts_at"] + sh))
-            continue
-        for t in manual_times(m, start_ts, end_ts):
-            out.append((m["name"], m["category"], t))
+        if m["shift_sec"] is None:
+            for t in manual_times(m, start_ts, end_ts):
+                out.append((m["name"], m["category"], t))
     return out
 
 
-def rebuild_occurrences(now: Optional[datetime] = None) -> int:
-    """Expand the site's schedule into upcoming times (shared by every server)."""
+def last_start(guild_id: int, name: str, now_ts: int, days: int) -> Optional[int]:
+    """The most recent start of a timer at or before now, looking back this many days."""
+    times = [t for n, _c, t in events_between(guild_id, now_ts - days * 86400, now_ts + 1) if n.lower() == name.lower()]
+    return max(times) if times else None
+
+
+def next_start(guild_id: int, name: str, now_ts: int) -> Optional[int]:
+    times = [t for n, _c, t in events_between(guild_id, now_ts + 1, now_ts + WINDOW_DAYS * 86400) if n.lower() == name.lower()]
+    return min(times) if times else None
+
+
+def purge_old(now: Optional[datetime] = None) -> None:
+    """Forget notification marks and one-off manual timers that are long past."""
     now = now or datetime.now(timezone.utc)
-    end = now + timedelta(days=WINDOW_DAYS)
     c = db.conn()
-    c.execute("DELETE FROM timer_events WHERE starts_at >= ?", (int(now.timestamp()),))
-    added = 0
-    tz = schedule_tz()
-    for r in c.execute("SELECT name, category, timing FROM timer_rules").fetchall():
-        rule = parse_rule(r["timing"])
-        if not rule:
-            log.warning("Could not understand timing %r for %s", r["timing"], r["name"])
-            continue
-        for t in occurrences(rule, now, end, tz):
-            c.execute(
-                "INSERT OR IGNORE INTO timer_events (name, category, starts_at) VALUES (?,?,?)",
-                (r["name"], r["category"], int(t.timestamp())),
-            )
-            added += 1
     cutoff = int((now - timedelta(days=config.TIMER_RETENTION_DAYS)).timestamp())
-    c.execute("DELETE FROM timer_events WHERE starts_at < ?", (cutoff,))
     c.execute("DELETE FROM timer_notified WHERE starts_at < ?", (cutoff,))
     c.execute(
         "DELETE FROM guild_timer_manual WHERE interval_min IS NULL AND shift_sec IS NULL AND next_at < ?", (int(now.timestamp()) - 30 * 86400,)
     )
     c.commit()
-    return added
 
 
 def all_names(guild_id: int) -> list[str]:
@@ -406,9 +443,9 @@ def build_embed(guild_id: int, category: Optional[str] = None, max_chars: Option
     last_ok = db.meta_get("timers_last_ok")
     embed = discord.Embed(title="AION 2 event timers", color=0xA9741A)
     embed.description = (
-        "Times show in your own timezone. Schedule from gamers4.life"
+        f"Times show in your own timezone. {gamedata.REGIONS[region_key(guild_id)][0]} schedule from gamers4.life"
         + (f" · updated {util.ts(int(last_ok), 'R')}" if last_ok else "")
-        + "\nWrong or missing? Fix it with `/timers set` or `/timers killed`."
+        + "\nWrong or missing? Fix it with `/timers set` or `/timers killed`. Wrong region? `/setup region` (admins)."
     )
     budget = (max_chars or 5900) - len(embed.title) - len(embed.description) - 120
     by_cat: dict[str, list] = {}
@@ -487,9 +524,8 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
         new: list = []
         if body is not None:
             rows = parse_table(body)
-            region, offset = parse_page_meta(body)
-            want = config.TIMERS_REGION.strip().lower()
-            if want and region and region.lower() != want:
+            region, _offset = parse_page_meta(body)
+            if not page_accepted(region):
                 db.meta_delete("timers_etag")
                 db.meta_set(
                     "timers_last_error",
@@ -497,11 +533,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
                 )
                 log.warning("Timers page shows region %r, wanted %r; ignoring it", region, config.TIMERS_REGION)
                 return "error"
-            if offset is not None:
-                db.meta_set("timers_tz_min", str(offset))
-            elif db.meta_get("timers_tz_min") is None:
-                db.meta_set("timers_tz_min", "0")
-            region_label = region or config.TIMERS_REGION
+            region_label = config.TIMERS_REGION
             region_changed = db.meta_get("timers_region") != region_label
             kept = 0
             if rows:
@@ -516,10 +548,11 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
                 )
                 log.warning("Timer page parsed but no usable rows (%d raw rows)", len(rows))
                 return "error"
-        added = rebuild_occurrences()
+        purge_old()
         db.meta_set("timers_last_ok", str(int(time.time())))
         db.meta_set("timers_last_error", "")
-        log.info("Timers %s: %d upcoming times stored", status, added)
+        n_rules = db.conn().execute("SELECT COUNT(*) AS n FROM timer_rules").fetchone()["n"]
+        log.info("Timers %s: %d scheduled timers tracked", status, n_rules)
         if new:
             await self._announce_new(new)
         return status
@@ -612,16 +645,14 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
     @staticmethod
     def _name_choices(guild_id: int, current: str):
         db.ensure_guild(guild_id)
-        rows = db.conn().execute(
-            """SELECT name FROM timer_rules UNION SELECT name FROM guild_timer_manual WHERE guild_id=?
-               UNION SELECT name FROM guild_bosses WHERE guild_id=? AND kind='world_boss' ORDER BY name""",
-            (guild_id, guild_id),
-        ).fetchall()
-        return [
-            app_commands.Choice(name=r["name"][:100], value=r["name"][:100])
-            for r in rows
-            if current.lower() in r["name"].lower()
-        ][:25]
+        names = all_names(guild_id) + sorted(FIELD_RESPAWNS)   # this server's timers first, then every known boss
+        names += db.bosses(guild_id, "world_boss", current)
+        seen, out = set(), []
+        for n in names:
+            if current.lower() in n.lower() and n.lower() not in seen:
+                seen.add(n.lower())
+                out.append(app_commands.Choice(name=n[:100], value=n[:100]))
+        return out[:25]
 
     @app_commands.command(name="set", description="Set or fix when a boss or event starts (shared with everyone)")
     @app_commands.describe(
@@ -657,7 +688,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
             return
         canon, cat, timing = canonical(interaction.guild_id, name)
         ts = int(starts.timestamp())
-        site = nearest_site_time(timing, ts)
+        site = nearest_site_time(timing, ts, guild_tz(interaction.guild_id))
         shift = None
         if site is not None and not iv and not only_this_time and abs(ts - site) <= MAX_SHIFT_SEC:
             shift = ts - site                      # keep the site's pattern, just moved by this much
@@ -686,7 +717,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
         return self._name_choices(interaction.guild_id, current)
 
     @app_commands.command(name="killed", description="A boss just died: start its respawn timer from now")
-    @app_commands.describe(name="Boss name", respawn="Respawn time, like 4h or 90m (remembered for next time)")
+    @app_commands.describe(name="Boss name", respawn="Respawn time, like 4h or 90m. Remembered; known field bosses don't need it")
     async def killed(self, interaction: discord.Interaction, name: str, respawn: Optional[str] = None):
         name = " ".join(name.split())[:60]
         canon, cat, timing = canonical(interaction.guild_id, name)
@@ -699,6 +730,8 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
                 mins = int(util.parse_duration(respawn).total_seconds() // 60)
             elif row and row["respawn_min"]:
                 mins = row["respawn_min"]
+            elif field_respawn(canon):
+                mins = field_respawn(canon)
             else:
                 raise ValueError("How long does it take to respawn? Add it like `respawn:4h`. I'll remember it for next time.")
             if not 1 <= mins <= 43200:
@@ -707,7 +740,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
             await interaction.response.send_message(str(e), ephemeral=True)
             return
         starts = int(time.time()) + mins * 60
-        save_manual(interaction.guild_id, canon, cat or "Field Bosses", starts, None, nearest_site_time(timing, starts), mins, interaction.user.id)
+        save_manual(interaction.guild_id, canon, cat or "Field Bosses", starts, None, nearest_site_time(timing, starts, guild_tz(interaction.guild_id)), mins, interaction.user.id)
         await interaction.response.send_message(
             f"**{canon}** respawns {util.ts(starts, 'R')} ({util.ts(starts, 't')}), {_fmt_minutes(mins)} from now.",
             ephemeral=True,
@@ -847,9 +880,8 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
             f"Last attempt: {util.ts(int(attempt), 'R') if attempt else 'never'}",
             f"Tracking {n_rules} scheduled timers ({n_catalog} ever seen on the site) and {n_manual} manual timers.",
             f"Refreshes every {config.TIMER_REFRESH_MINUTES} minutes from gamers4.life. Anything new on the site is tracked automatically.",
-            f"Schedule: {db.meta_get('timers_region') or 'not read yet'} version, clock times in "
-            + (lambda v: "UTC" if v in (None, "", "0") else f"UTC{int(v) // 60:+d}")(db.meta_get("timers_tz_min"))
-            + f". Only the {config.TIMERS_REGION} schedule is accepted.",
+            f"This server follows the {gamedata.REGIONS[region_key(interaction.guild_id)][1]} server clock"
+            " (`/setup region` changes it, admins).",
         ]
         if new and "|" in new:
             stamp, names = new.split("|", 1)

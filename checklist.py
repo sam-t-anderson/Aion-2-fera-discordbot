@@ -9,10 +9,9 @@ from discord.ext import commands, tasks
 
 import config
 import db
+import timers
 
 log = logging.getLogger("aion2.checklist")
-
-WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 # (id, label, times to complete, optional)
 LISTS = {
@@ -21,9 +20,9 @@ LISTS = {
         "items": [
             ("duties", "Duties (J, Duties tab)", 5, False),
             ("nightmare", "Nightmare", 2, False),
-            ("odal", "Spend Odal energy", 1, False),
-            ("shugo", "Shugo keys", 1, False),
-            ("rift", "Space-time rift", 1, True),
+            ("odal", "Spend Odyle energy", 1, False),
+            ("shugo", "Shugo Festa keys", 1, False),
+            ("rift", "Spacetime Rift", 1, True),
             ("abyss", "Abyss farming", 1, True),
         ],
     },
@@ -32,7 +31,7 @@ LISTS = {
         "items": [
             ("dd", "Daily Dungeon", 14, False),
             ("asc", "Ascension Trial", 3, False),
-            ("cmd", "Command scrolls", 2, False),
+            ("cmd", "Abyss commander scrolls", 2, False),
             ("alts", "Alts parked at level 22", 1, True),
         ],
     },
@@ -41,27 +40,39 @@ ITEM_MAX = {k: {i[0]: i[2] for i in v["items"]} for k, v in LISTS.items()}
 
 
 # ---------------------------------------------------------------- reset math
-def period_start(kind: str, now: datetime | None = None) -> str:
-    """Identifier (a date) of the current daily/weekly period."""
-    now = now or datetime.now(timezone.utc)
+# Resets follow the "Daily Reset" / "Weekly Reset" timers of the server's region, including
+# anything set with /timers set. The fixed hour from the settings is only the fallback.
+RESET_TIMER = {"daily": "Daily Reset", "weekly": "Weekly Reset"}
+
+
+def _fixed_reset(kind: str, now: datetime) -> datetime:
     d = (now - timedelta(hours=config.RESET_UTC_HOUR)).date()
     if kind == "weekly":
         d -= timedelta(days=(d.weekday() - config.WEEKLY_RESET_WEEKDAY) % 7)
-    return d.isoformat()
+    return datetime(d.year, d.month, d.day, tzinfo=timezone.utc) + timedelta(hours=config.RESET_UTC_HOUR)
 
 
-def next_reset(kind: str, now: datetime | None = None) -> datetime:
+def last_reset(kind: str, guild_id: int, now: datetime | None = None) -> int:
+    """When the current daily/weekly period began for this server."""
     now = now or datetime.now(timezone.utc)
-    start = datetime.fromisoformat(period_start(kind, now)).replace(tzinfo=timezone.utc)
-    start += timedelta(hours=config.RESET_UTC_HOUR)
-    return start + timedelta(days=1 if kind == "daily" else 7)
+    ts = timers.last_start(guild_id, RESET_TIMER[kind], int(now.timestamp()), 2 if kind == "daily" else 8)
+    return ts if ts is not None else int(_fixed_reset(kind, now).timestamp())
+
+
+def next_reset(kind: str, guild_id: int, now: datetime | None = None) -> int:
+    now = now or datetime.now(timezone.utc)
+    ts = timers.next_start(guild_id, RESET_TIMER[kind], int(now.timestamp()))
+    if ts is not None:
+        return ts
+    return int((_fixed_reset(kind, now) + timedelta(days=1 if kind == "daily" else 7)).timestamp())
 
 
 # ---------------------------------------------------------------- storage
-def get_counts(user_id: int, kind: str) -> dict[str, int]:
+# progress.period holds when the item was last ticked; it counts while that is after the last reset.
+def get_counts(user_id: int, kind: str, guild_id: int) -> dict[str, int]:
     rows = db.conn().execute(
-        "SELECT item, count FROM progress WHERE user_id=? AND kind=? AND period=?",
-        (user_id, kind, period_start(kind)),
+        "SELECT item, count FROM progress WHERE user_id=? AND kind=? AND CAST(period AS INTEGER) >= ?",
+        (user_id, kind, last_reset(kind, guild_id)),
     ).fetchall()
     return {r["item"]: r["count"] for r in rows}
 
@@ -71,18 +82,19 @@ def set_count(user_id: int, kind: str, item: str, count: int) -> None:
         """INSERT INTO progress (user_id, kind, item, count, period) VALUES (?,?,?,?,?)
            ON CONFLICT(user_id, kind, item)
            DO UPDATE SET count=excluded.count, period=excluded.period""",
-        (user_id, kind, item, count, period_start(kind)),
+        (user_id, kind, item, count, str(int(datetime.now(timezone.utc).timestamp()))),
     )
     db.conn().commit()
 
 
-def purge_old(kind: str) -> None:
-    db.conn().execute("DELETE FROM progress WHERE kind=? AND period<>?", (kind, period_start(kind)))
+def purge_old() -> None:
+    cutoff = int(datetime.now(timezone.utc).timestamp()) - 9 * 86400
+    db.conn().execute("DELETE FROM progress WHERE CAST(period AS INTEGER) < ?", (cutoff,))
     db.conn().commit()
 
 
 # ---------------------------------------------------------------- rendering
-def render(kind: str, counts: dict[str, int]) -> discord.Embed:
+def render(kind: str, counts: dict[str, int], guild_id: int) -> discord.Embed:
     lines, done, total = [], 0, 0
     for item_id, label, n, optional in LISTS[kind]["items"]:
         c = min(counts.get(item_id, 0), n)
@@ -92,7 +104,7 @@ def render(kind: str, counts: dict[str, int]) -> discord.Embed:
         progress = f" {c}/{n}" if n > 1 else ""
         opt = " *(optional)*" if optional else ""
         lines.append(f"{mark} **{label}**{progress}{opt}")
-    reset_ts = int(next_reset(kind).timestamp())
+    reset_ts = next_reset(kind, guild_id)
     embed = discord.Embed(
         title=f"AION 2 {LISTS[kind]['title']}",
         description="\n".join(lines),
@@ -115,16 +127,14 @@ def build_view(kind: str, counts: dict[str, int]) -> discord.ui.View:
     return view
 
 
-def panel_embed() -> discord.Embed:
-    wd = WEEKDAYS[config.WEEKLY_RESET_WEEKDAY]
-    hh = f"{config.RESET_UTC_HOUR:02d}:00 UTC"
+def panel_embed(guild_id: int) -> discord.Embed:
     return discord.Embed(
         title="AION 2 Checklists",
         description=(
             "Press a button to open **your own** checklist. Only you can see it, "
             "and your progress is saved separately from everyone else's.\n\n"
-            f"Daily reset: {hh} every day.\n"
-            f"Weekly reset: {wd}s at {hh}."
+            f"Daily reset: every day at <t:{next_reset('daily', guild_id)}:t> (shown in your time).\n"
+            "Weekly reset: once a week. Your checklist shows exactly when the next one is."
         ),
         color=0xA9741A,
     )
@@ -152,9 +162,9 @@ class OpenButton(
         return cls(match["kind"])
 
     async def callback(self, interaction: discord.Interaction):
-        counts = get_counts(interaction.user.id, self.kind)
+        counts = get_counts(interaction.user.id, self.kind, interaction.guild_id)
         await interaction.response.send_message(
-            embed=render(self.kind, counts),
+            embed=render(self.kind, counts, interaction.guild_id),
             view=build_view(self.kind, counts),
             ephemeral=True,
         )
@@ -179,12 +189,12 @@ class TickButton(
         if n is None:
             await interaction.response.defer()
             return
-        counts = get_counts(uid, self.kind)
+        counts = get_counts(uid, self.kind, interaction.guild_id)
         cur = counts.get(self.item_id, 0)
         counts[self.item_id] = 0 if cur >= n else cur + 1
         set_count(uid, self.kind, self.item_id, counts[self.item_id])
         await interaction.response.edit_message(
-            embed=render(self.kind, counts), view=build_view(self.kind, counts)
+            embed=render(self.kind, counts, interaction.guild_id), view=build_view(self.kind, counts)
         )
 
 
@@ -209,7 +219,7 @@ class BulkButton(
             counts[item_id] = n if self.mode == "all" else 0
             set_count(uid, self.kind, item_id, counts[item_id])
         await interaction.response.edit_message(
-            embed=render(self.kind, counts), view=build_view(self.kind, counts)
+            embed=render(self.kind, counts, interaction.guild_id), view=build_view(self.kind, counts)
         )
 
 
@@ -217,10 +227,9 @@ class BulkButton(
 class Checklist(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.last_period: dict[str, str] = {}
+        self.last_seen: dict[tuple[int, str], int] = {}
 
     async def cog_load(self):
-        self.last_period = {k: period_start(k) for k in LISTS}
         self.reset_loop.start()
 
     async def cog_unload(self):
@@ -229,18 +238,22 @@ class Checklist(commands.Cog):
     @tasks.loop(seconds=30)
     async def reset_loop(self):
         try:
-            for kind in LISTS:
-                purge_old(kind)
-                current = period_start(kind)
-                if self.last_period.get(kind) != current:
-                    self.last_period[kind] = current
-                    log.info("%s reset", kind)
-                    for gid, cid in db.announce_channels():
-                        try:
-                            channel = self.bot.get_channel(cid) or await self.bot.fetch_channel(cid)
-                            await channel.send(f"The AION 2 **{kind}** checklist has reset.")
-                        except discord.HTTPException:
-                            log.info("Could not announce the %s reset in server %s", kind, gid)
+            purge_old()
+            now = datetime.now(timezone.utc)
+            for gid, cid in db.announce_channels():
+                for kind in LISTS:
+                    current = last_reset(kind, gid, now)
+                    previous = self.last_seen.get((gid, kind))
+                    self.last_seen[(gid, kind)] = current
+                    # only a reset that just happened; a moved timer also changes the value
+                    if previous is None or current <= previous or now.timestamp() - current > 120:
+                        continue
+                    log.info("%s reset in server %s", kind, gid)
+                    try:
+                        channel = self.bot.get_channel(cid) or await self.bot.fetch_channel(cid)
+                        await channel.send(f"The AION 2 **{kind}** checklist has reset.")
+                    except discord.HTTPException:
+                        log.info("Could not announce the %s reset in server %s", kind, gid)
         except Exception:
             log.exception("Checklist reset loop error")
 
@@ -255,7 +268,7 @@ class Checklist(commands.Cog):
         view = discord.ui.View(timeout=None)
         view.add_item(OpenButton("daily"))
         view.add_item(OpenButton("weekly"))
-        await interaction.response.send_message(embed=panel_embed(), view=view)
+        await interaction.response.send_message(embed=panel_embed(interaction.guild_id), view=view)
 
     @app_commands.command(name="checklist", description="Show your own AION 2 checklist")
     @app_commands.describe(kind="Which checklist to open")
@@ -266,9 +279,9 @@ class Checklist(commands.Cog):
         ]
     )
     async def checklist(self, interaction: discord.Interaction, kind: app_commands.Choice[str]):
-        counts = get_counts(interaction.user.id, kind.value)
+        counts = get_counts(interaction.user.id, kind.value, interaction.guild_id)
         await interaction.response.send_message(
-            embed=render(kind.value, counts), view=build_view(kind.value, counts), ephemeral=True
+            embed=render(kind.value, counts, interaction.guild_id), view=build_view(kind.value, counts), ephemeral=True
         )
 
 

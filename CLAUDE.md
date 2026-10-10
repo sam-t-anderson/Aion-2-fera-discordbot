@@ -22,10 +22,11 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 
 ## Layout
 - `bot.py` entry; `GuildOnlyTree` rejects DMs and registers the server. Modules load in `setup_hook`.
-- `checklist.py` per-user daily/weekly checklists (13:00 UTC reset, weekly Monday). Persistent buttons.
+- `checklist.py` per-user daily/weekly checklists. Resets follow the server's "Daily Reset" / "Weekly Reset" timers (overrides included); `RESET_UTC_HOUR` / `WEEKLY_RESET_WEEKDAY` are only the fallback. Persistent buttons.
 - `events.py` event planner (`/event`, `/eventlist`, `/timezone`), signups with roles.
-- `timers.py` scrapes gamers4.life **Global** schedule (region verified from the page heading; times are UTC), `/timers ...`, live `/timer-setup` board, DM notifications, manual overrides.
-- `links.py` private links. `guilds.py` welcome message + `/setup announcements|show`.
+- `timers.py` scrapes gamers4.life **Global** schedule (Taiwan/Korea pages refused), `/timers ...`, live `/timer-setup` board, DM notifications, manual overrides.
+- `gamedata.py` regions (key, labels, timezone) and the Verteron/Altgard field bosses with respawn minutes, spelled as in the Global client.
+- `links.py` private links. `guilds.py` welcome message + `/setup announcements|region|show`.
 - `dkp.py` DKP: ledger, `/dkp` `/gear` `/loot`, check-in buttons, event award/undo panels (`/dkp event-button`), live full-list board (`/dkp-setup`).
 - `db.py` schema + migrations. `config.py` env settings. `health.py` health endpoint. `inspect_timers.py` diagnostic.
 - `docs/PLAYER-GUIDE.md` (+PDF) player docs; `docs/GUIDE-full.md` includes hosting notes.
@@ -35,7 +36,10 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 - **Per-server data**: every table is keyed by `guild_id`; `db.forget_guild` wipes a server on leave. Only scraped timers (`timer_rules`, `timer_events`) are shared.
 - **DynamicItem buttons** (`ClaimButton`, `BatchButton`, `TickButton`, ...): never store your own state in `self.item`, `self.view`, `self.row` etc. — DynamicItem owns those names. (This silently broke checklist ticks; regression test `tests/test9.py`.) Encode state in the custom_id regex.
 - **Timer overrides** (`guild_timer_manual`): `/timers set` on a timer the site lists stores `shift_sec`, which moves *every* site start by that amount (persists across refresh/restart; only within 12h of the site time). `only_this_time` / `/timers killed` replace just the nearest site start (`replaces_at`). `repeat:` creates its own cycle. The 30-day purge must skip shift rows.
-- **Timers region guard**: if the page region isn't `TIMERS_REGION` (default Global) the last good schedule is kept.
+- **Timer regions**: the site's clock times are each Global region's own local server time (the page it serves is always NA East, UTC-4). Nothing is pre-expanded: `events_between` works out start times from `timer_rules` with the server's timezone (`guild_settings.timer_region`, set by `/setup region`, default `TIMERS_DEFAULT_REGION` = `na`), so daylight saving is followed. If the page shows Taiwan or Korea the last good schedule is kept.
+- **Rule formats** the site uses: `every 3h from 02:00`, `every hour at :30`, `Mon, Thu, Sat at 21:30`, `daily at 11:00, 19:00`. An unparsed timing shows as "no upcoming time found" and overrides on it only last once, so add new formats to `parse_rule`.
+- **Checklist progress**: `progress.period` holds the time of the last tick; a row counts while that is after the server's last reset.
+- **Field bosses** aren't on the site. `/timers killed` takes their respawn from `gamedata.FIELD_BOSSES`; Silent Dartan and High Commander Lagta differ by zone, so their timers are named with the zone.
 - **DKP**: balances = SUM of `dkp_ledger.delta` for the current season where `undone=0`. Event panels use `dkp_batches` (`ready -> awarded -> undone`); undo flips `undone` on rows with that `batch_id`. Gear goes to the highest-DKP reserver (earlier reservation breaks ties), unaffordable players skipped, winner charged. No automatic decay (`/dkp decay` is manual).
 - **Live boards** edit messages only when the payload changed; DKP board paginates (<=3800 chars per embed) and reposts everything if a page was deleted. The board only lists players with a ledger entry this season (no members intent).
 - Python 3.11 forbids reusing the same quote inside f-string expressions; the server image is 3.12 but keep code 3.11-safe.
@@ -46,5 +50,5 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 - Keep player-facing text plain and friendly; admin-only features are labelled "(officers)" / "(admins)".
 
 ## Status / ideas not done
-- Online "AION 2 Bot Guide" Claude Doc is out of date (missing `/dkp event-button`, `/dkp-setup`, `only_this_time`); PDF/txt/markdown in `docs/` are current.
+- Online "AION 2 Bot Guide" Claude Doc is out of date (missing `/dkp event-button`, `/dkp-setup`, `only_this_time`); the markdown in `docs/` is current, but `docs/AION2-Bot-Guide.pdf` predates regions, `/setup region` and the field boss list.
 - Optional: automatic scheduled DKP decay; DKP board could list members with zero DKP only with the privileged members intent.

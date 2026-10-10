@@ -10,6 +10,8 @@ from discord import app_commands
 from discord.ext import commands
 
 import db
+import gamedata
+import timers
 import util
 
 log = logging.getLogger("aion2.guilds")
@@ -19,6 +21,7 @@ WELCOME = (
     "**Everyone:** `/checklist` (your private daily and weekly list), `/event create` (plan a raid or boss run), "
     "`/timers show` (boss and event timers), `/link` (map, database, planners), `/timezone set` (so times match your clock).\n\n"
     "**Server managers (Manage Server):** `/checklist-setup` posts the checklist buttons, `/timer-setup` posts a live timer board, "
+    "`/setup region` picks your game region so timers and resets follow your server's clock (NA East until you choose), "
     "and `/setup announcements` picks a channel for reset and new-timer notices (off until you choose one).\n\n"
     "Replies to most commands are private, so this won't spam your channels."
 )
@@ -74,6 +77,20 @@ class ServerSetup(commands.Cog):
             f"Done. I'll post checklist resets and newly spotted timers in {channel.mention}.", ephemeral=True
         )
 
+    @group.command(name="region", description="Pick the game region whose server clock the timers and resets follow")
+    @app_commands.describe(region="The region your characters play on")
+    @app_commands.choices(
+        region=[app_commands.Choice(name=f"{full} ({short})", value=key) for key, (short, full, _tz) in gamedata.REGIONS.items()]
+    )
+    async def region(self, interaction: discord.Interaction, region: str):
+        if not util.is_admin(interaction):
+            await interaction.response.send_message("You need the Manage Server permission.", ephemeral=True)
+            return
+        db.set_settings(interaction.guild_id, timer_region=region)
+        await interaction.response.send_message(
+            f"Done. Timers and checklist resets now follow the **{gamedata.REGIONS[region][1]}** server clock.", ephemeral=True
+        )
+
     @group.command(name="show", description="Show this server's settings")
     async def show(self, interaction: discord.Interaction):
         if not util.is_admin(interaction):
@@ -84,6 +101,7 @@ class ServerSetup(commands.Cog):
         announce = db.get_setting(gid, "announce_channel")
         board_c, board_m = db.get_setting(gid, "board_channel"), db.get_setting(gid, "board_message")
         lines = [
+            f"Game region: {gamedata.REGIONS[timers.region_key(gid)][1]} (`/setup region` to change)",
             f"Notices channel: {f'<#{announce}>' if announce else 'off (`/setup announcements` to choose one)'}",
             f"Timer board: {f'https://discord.com/channels/{gid}/{board_c}/{board_m}' if board_c and board_m else 'none (`/timer-setup` posts one)'}",
         ]

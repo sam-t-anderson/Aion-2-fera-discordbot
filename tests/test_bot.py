@@ -54,6 +54,7 @@ parsed = timers.parse_table(html)
 assert parsed == rows, parsed
 assert timers.parse_table("<html>nothing</html>") == []
 r = timers.parse_rule
+GMT8 = timezone(timedelta(hours=8))
 assert r("every 3h from 02:00") == {"type":"interval","hours":3,"h":2,"m":0}
 assert r("every hour at :30")["m"] == 30
 assert r("every 1h") == {"type":"interval","hours":1,"h":0,"m":0}
@@ -61,22 +62,22 @@ assert r("Sun, Fri at 22:00") == {"type":"weekly","days":[4,6],"h":22,"m":0}
 assert r("Wed, Sat at 22:30")["days"] == [2,5]
 assert r("gibberish") is None
 start = datetime(2026,9,30,0,0,tzinfo=UTC); end = start + timedelta(days=1)
-occ = timers.occurrences(r("every 3h from 02:00"), start, end, timers.GMT8)
+occ = timers.occurrences(r("every 3h from 02:00"), start, end, GMT8)
 # GMT+8 02:00,05:00,... == 18:00, 21:00, 00:00 UTC ...
 assert [o.hour for o in occ] == [0,3,6,9,12,15,18,21], [o.hour for o in occ]
-assert len(timers.occurrences(r("every hour at :30"), start, end, timers.GMT8)) == 24
+assert len(timers.occurrences(r("every hour at :30"), start, end, GMT8)) == 24
 # Wed 22:00 GMT+8 == Wed 14:00 UTC. 2026-09-30 is a Wednesday.
-wk = timers.occurrences(r("Wed, Sat at 22:00"), start, start + timedelta(days=8), timers.GMT8)
+wk = timers.occurrences(r("Wed, Sat at 22:00"), start, start + timedelta(days=8), GMT8)
 assert [o.strftime("%a %H:%M") for o in wk] == ["Wed 14:00","Sat 14:00","Wed 14:00"], wk
 # Week boundary: Sunday 22:00 GMT+8 near start still found
-assert timers.occurrences(r("Sun, Fri at 22:00"), datetime(2026,10,2,0,0,tzinfo=UTC), datetime(2026,10,5,0,0,tzinfo=UTC), timers.GMT8)
+assert timers.occurrences(r("Sun, Fri at 22:00"), datetime(2026,10,2,0,0,tzinfo=UTC), datetime(2026,10,5,0,0,tzinfo=UTC), GMT8)
 
 async def main():
     db.init()
     db.ensure_guild(1)
     names = db.bosses(1, "raid")
     assert len(names) == 4 and "Eternal Ludra" in names
-    assert len(db.bosses(1, "world_boss")) == 6
+    assert "Soul Ruler Kashapa" in db.bosses(1, "world_boss", "kashapa") and not db.bosses(1, "world_boss", "Kallon")
     db.conn().execute("DELETE FROM guild_bosses WHERE name='Eternal Ludra'"); db.conn().commit()
     db.init(os.environ["DB_PATH"])
     assert len(db.bosses(1, "raid")) == 3  # not re-seeded
@@ -85,14 +86,14 @@ async def main():
     # timer storage + rebuild
     config.TIMER_CATEGORIES = ['Rifts','World Bosses','Abyss']
     assert timers.store_rules(rows)[0] == 5           # 'Events' category filtered out
-    n = timers.rebuild_occurrences(datetime(2026,9,30,0,0,tzinfo=UTC))
-    assert n > 40
-    assert db.conn().execute("SELECT COUNT(*) c FROM timer_events WHERE name='Beritra Air Raid'").fetchone()["c"] == 0
+    a = int(datetime(2026,9,30,0,0,tzinfo=UTC).timestamp())
+    ev = timers.events_between(1, a, a + 8 * 86400)
+    assert len(ev) > 40 and not [e for e in ev if e[0] == 'Beritra Air Raid']
     # retention purge
     old = int((datetime.now(UTC) - timedelta(days=9)).timestamp())
-    db.conn().execute("INSERT INTO timer_events VALUES ('Old','Rifts',?)", (old,)); db.conn().commit()
-    timers.rebuild_occurrences()
-    assert db.conn().execute("SELECT COUNT(*) c FROM timer_events WHERE name='Old'").fetchone()["c"] == 0
+    db.conn().execute("INSERT INTO timer_notified VALUES (1,'Old',?)", (old,)); db.conn().commit()
+    timers.purge_old()
+    assert db.conn().execute("SELECT COUNT(*) c FROM timer_notified WHERE name='Old'").fetchone()["c"] == 0
 
     # event rendering + signup logic
     import time

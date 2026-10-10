@@ -83,6 +83,14 @@ CREATE TABLE IF NOT EXISTS timer_catalog (
     first_seen INTEGER NOT NULL,
     last_seen INTEGER NOT NULL);
 
+CREATE TABLE IF NOT EXISTS boss_catalog (
+    name TEXT PRIMARY KEY COLLATE NOCASE,
+    level INTEGER,
+    zones TEXT,
+    areas TEXT,
+    url TEXT,
+    last_seen INTEGER NOT NULL);
+
 CREATE TABLE IF NOT EXISTS guild_timer_manual (
     guild_id INTEGER NOT NULL,
     name TEXT NOT NULL COLLATE NOCASE,
@@ -350,7 +358,9 @@ def seed_bosses(guild_id: int) -> None:
     for kind, names in PREBUILT_BOSSES.items():
         for name in names:
             c.execute("INSERT OR IGNORE INTO guild_bosses (guild_id, kind, name) VALUES (?,?,?)", (guild_id, kind, name))
-    for r in c.execute("SELECT name FROM timer_catalog WHERE lower(category) LIKE '%world boss%'").fetchall():
+    for r in c.execute(
+        "SELECT name FROM timer_catalog WHERE lower(category) LIKE '%world boss%' UNION SELECT name FROM boss_catalog"
+    ).fetchall():
         c.execute("INSERT OR IGNORE INTO guild_bosses (guild_id, kind, name) VALUES (?,'world_boss',?)", (guild_id, r["name"]))
     c.commit()
 

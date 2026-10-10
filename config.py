@@ -43,6 +43,8 @@ TIMER_REFRESH_MINUTES = max(5, _int("TIMER_REFRESH_MINUTES", 15))
 TIMER_BOARD_MINUTES = max(1, _int("TIMER_BOARD_MINUTES", 2))
 DKP_BOARD_MINUTES = max(1, _int("DKP_BOARD_MINUTES", 2))
 TIMER_RETENTION_DAYS = _int("TIMER_RETENTION_DAYS", 7)
+# Open-world boss names, levels and locations (JSON feed built from the Global client). Empty turns it off.
+BOSS_DATA_URL = os.getenv("BOSS_DATA_URL", "https://aion2data.com/raw/monsters.json").strip()
 USER_AGENT = "AION2DiscordBot/2.0 (personal server bot; checks every 15 min)"
 
 # Health endpoint for Uptime Kuma / Homepage (port inside the container)

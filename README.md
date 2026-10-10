@@ -27,6 +27,7 @@ Event planner
 Timers (from gamers4.life, refreshed every 15 minutes). Only the Global schedule is accepted (`TIMERS_REGION`). Each Global region runs it on its own server clock, so every Discord server picks its region with `/setup region` (default `TIMERS_DEFAULT_REGION`, NA East). The checklist resets follow the site's Daily Reset and Weekly Reset timers, including any `/timers set` correction.
 - `/timers show`, `/timers notify`, `/timers unnotify`, `/timers mine`, `/timers status`.
 - Manual fixes, shared with everyone: `/timers set` (moves the site's whole schedule for that timer by the difference, or `only_this_time:True` for one start, or `repeat:` for your own cycle), `/timers killed` (starts a respawn countdown; knows the Verteron and Altgard field boss respawns and remembers any other length), `/timers clear` (back to the site's schedule).
+- Boss names, levels and locations for every open-world boss come from [aion2data.com](https://aion2data.com/bosses)'s JSON feed of the Global client files, read once a day (`BOSS_DATA_URL`). The game files hold no respawn times, so those come from kill reports.
 - `/timer-setup` (Manage Server): posts a live timer board in the channel, edited every `TIMER_BOARD_MINUTES` (default 2). `stop:True` removes it.
 - New rows on the site are tracked automatically and announced in each server's notices channel (if set). New world bosses also join every server's event planner boss list.
 

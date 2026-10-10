@@ -17,6 +17,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
+import bosscatalog
 import config
 import db
 import gamedata
@@ -256,6 +257,9 @@ def canonical(guild_id: int, name: str):
     for known in list(FIELD_RESPAWNS) + gamedata.field_boss_names():
         if known.lower() == name.lower():
             return known, "Field Bosses", None
+    row = bosscatalog.lookup(name)
+    if row:
+        return row["name"], bosscatalog.category(row), None
     if b:
         return b["name"], "World Bosses", None
     return name, None, None
@@ -645,7 +649,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
     @staticmethod
     def _name_choices(guild_id: int, current: str):
         db.ensure_guild(guild_id)
-        names = all_names(guild_id) + sorted(FIELD_RESPAWNS)   # this server's timers first, then every known boss
+        names = all_names(guild_id) + sorted(FIELD_RESPAWNS) + bosscatalog.names()   # this server's timers first, then every known boss
         names += db.bosses(guild_id, "world_boss", current)
         seen, out = set(), []
         for n in names:
@@ -733,7 +737,9 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
             elif field_respawn(canon):
                 mins = field_respawn(canon)
             else:
-                raise ValueError("How long does it take to respawn? Add it like `respawn:4h`. I'll remember it for next time.")
+                zones = (bosscatalog.lookup(canon) or {"zones": ""})["zones"] or ""
+                hint = " It respawns at a different speed in each zone, or pick the one with your zone in its name." if "," in zones and any(k.startswith(canon + " (") for k in FIELD_RESPAWNS) else ""
+                raise ValueError(f"How long does it take to respawn? Add it like `respawn:4h`. I'll remember it for next time.{hint}")
             if not 1 <= mins <= 43200:
                 raise ValueError("Respawn must be between 1 minute and 30 days.")
         except ValueError as e:
@@ -741,8 +747,10 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
             return
         starts = int(time.time()) + mins * 60
         save_manual(interaction.guild_id, canon, cat or "Field Bosses", starts, None, nearest_site_time(timing, starts, guild_tz(interaction.guild_id)), mins, interaction.user.id)
+        where = bosscatalog.describe(canon)
         await interaction.response.send_message(
-            f"**{canon}** respawns {util.ts(starts, 'R')} ({util.ts(starts, 't')}), {_fmt_minutes(mins)} from now.",
+            f"**{canon}** respawns {util.ts(starts, 'R')} ({util.ts(starts, 't')}), {_fmt_minutes(mins)} from now."
+            + (f"\n{where}" if where else ""),
             ephemeral=True,
         )
 
@@ -883,6 +891,17 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
             f"This server follows the {gamedata.REGIONS[region_key(interaction.guild_id)][1]} server clock"
             " (`/setup region` changes it, admins).",
         ]
+        n_bosses = c.execute("SELECT COUNT(*) AS n FROM boss_catalog").fetchone()["n"]
+        b_ok, b_err = db.meta_get("bosses_last_ok"), db.meta_get("bosses_last_error")
+        if n_bosses:
+            lines.append(
+                f"Boss list: {n_bosses} open-world bosses from [aion2data.com](<https://aion2data.com/bosses>)"
+                + (f" (client {db.meta_get('bosses_version')})" if db.meta_get("bosses_version") else "")
+                + (f", checked {util.ts(int(b_ok), 'R')}" if b_ok else "")
+                + ". Respawn times aren't in the game files, so they come from kill reports."
+            )
+        if b_err:
+            lines.append(f"Boss list problem: {b_err}")
         if new and "|" in new:
             stamp, names = new.split("|", 1)
             lines.append(f"Last new timer spotted {util.ts(int(stamp), 'R')}: {util.cut(names, 300)}")

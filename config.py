@@ -45,6 +45,13 @@ DKP_BOARD_MINUTES = max(1, _int("DKP_BOARD_MINUTES", 2))
 TIMER_RETENTION_DAYS = _int("TIMER_RETENTION_DAYS", 7)
 # Open-world boss names, levels and locations (JSON feed built from the Global client). Empty turns it off.
 BOSS_DATA_URL = os.getenv("BOSS_DATA_URL", "https://aion2data.com/raw/monsters.json").strip()
+# Official list of game servers per region, for /setup server. Empty turns it off.
+SERVER_LIST_URL = os.getenv("SERVER_LIST_URL", "https://aion2.plaync.com/en-us/api/gameinfo/servers").strip()
+# Field boss kills found in combat logs uploaded to the log server. Each starts a respawn timer. Empty turns it off.
+BOSS_KILLS_URL = os.getenv("BOSS_KILLS_URL", "https://island-1.tailbe3340.ts.net/api/v1/boss-kills").strip()
+BOSS_KILLS_MINUTES = max(1, _int("BOSS_KILLS_MINUTES", 1))
+# How many different uploaders must have recorded a kill before it starts a timer.
+BOSS_KILLS_MIN_REPORTS = max(1, _int("BOSS_KILLS_MIN_REPORTS", 1))
 USER_AGENT = "AION2DiscordBot/2.0 (personal server bot; checks every 15 min)"
 
 # Health endpoint for Uptime Kuma / Homepage (port inside the container)

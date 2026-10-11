@@ -12,6 +12,7 @@ import config
 import db
 import dkp
 import events
+import gameservers
 import guilds
 import health
 import links
@@ -44,7 +45,7 @@ class AionBot(commands.Bot):
 
     async def setup_hook(self):
         db.init()
-        for module in (checklist, events, timers, bosscatalog, links, guilds, dkp):
+        for module in (checklist, events, timers, bosscatalog, gameservers, links, guilds, dkp):
             await module.setup(self)
         # Commands are global, so any server that adds the bot gets them (new ones can take up to an hour to show).
         await self.tree.sync()

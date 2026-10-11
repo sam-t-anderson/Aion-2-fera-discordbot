@@ -28,6 +28,7 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 - `events.py` event planner (`/event`, `/eventlist`, `/timezone`), signups with roles.
 - `timers.py` scrapes gamers4.life **Global** schedule (Taiwan/Korea pages refused), `/timers ...`, live `/timer-setup` board, DM notifications, manual overrides.
 - `bosscatalog.py` reads aion2data.com's `raw/monsters.json` (Global client files; free to use with a link back) once a day into `boss_catalog`: every open-world boss with level, zone and area. Names feed `/timers` autocomplete and each server's planner boss list. It has no respawn times.
+- `gameservers.py` official game server list per region (daily, `game_servers` table) for `/setup server`, and the kill feed: polls the log server's `/api/v1/boss-kills?server=ID` (Sam's `Aion-2-tools-server`) every minute and starts respawn timers as manual rows with `set_by=0` ("from combat logs"). Respawn used = shortest of the feed's measured value, `gamedata` and the guild's remembered one. A local `/timers killed` newer than the kill wins. Zone-split bosses use the server faction's home zone.
 - `gamedata.py` regions (key, labels, timezone) and the Verteron/Altgard field bosses with respawn minutes, spelled as in the Global client.
 - `links.py` private links. `guilds.py` welcome message + `/setup announcements|region|show`.
 - `dkp.py` DKP: ledger, `/dkp` `/gear` `/loot`, check-in buttons, event award/undo panels (`/dkp event-button`), live full-list board (`/dkp-setup`).
@@ -55,5 +56,5 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 
 ## Status / ideas not done
 - Online "AION 2 Bot Guide" Claude Doc is out of date (missing `/dkp event-button`, `/dkp-setup`, `only_this_time`); the markdown in `docs/` is current, but `docs/AION2-Bot-Guide.pdf` predates regions, `/setup region` and the field boss list.
-- Live field boss spawn times: no open feed exists. aion2timers.com has a per-server kill tracker fed by the AbyssLogs DPS meter (private API, needs the owner's permission); Sam's own log server has `/api/v1/boss-status` but it only sees uploaded dungeon logs so far and doesn't know server/channel. Until one of those is usable, respawns come from `/timers killed`.
+- Field boss kills only reach the feed when someone uploads a public log, so timers are as live as uploads are. Japan's official server-list code is a guess (`as`); check `/setup server` shows the right servers for a JP guild.
 - Optional: automatic scheduled DKP decay; DKP board could list members with zero DKP only with the privileged members intent.

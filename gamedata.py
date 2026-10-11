@@ -11,6 +11,8 @@ REGIONS = {
     "sa": ("SA", "South America", "America/Sao_Paulo"),
     "jp": ("JP", "Japan", "Asia/Tokyo"),
 }
+# The official site's code for each region's server list. Japan is assumed to be in its Asia list.
+OFFICIAL_REGIONS = {"na": "nae", "naw": "naw", "eu": "eu", "sa": "la", "jp": "as"}
 # Regions the site also offers that follow a different schedule; their page is not accepted.
 OTHER_REGIONS = ("Taiwan", "Korea")
 

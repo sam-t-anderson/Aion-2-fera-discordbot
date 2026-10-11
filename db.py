@@ -28,7 +28,14 @@ CREATE TABLE IF NOT EXISTS guild_settings (
     board_channel INTEGER,
     board_message INTEGER,
     timer_region TEXT,
+    game_server TEXT,
     joined_at INTEGER NOT NULL);
+
+CREATE TABLE IF NOT EXISTS game_servers (
+    server_id TEXT PRIMARY KEY,
+    region TEXT NOT NULL,
+    name TEXT NOT NULL,
+    race INTEGER);
 
 CREATE TABLE IF NOT EXISTS guild_bosses (
     guild_id INTEGER NOT NULL,
@@ -229,6 +236,8 @@ def init(path: str | None = None) -> None:
         _conn.execute("ALTER TABLE dkp_ledger ADD COLUMN batch_id INTEGER")
     if not any(r["name"] == "timer_region" for r in _conn.execute("PRAGMA table_info(guild_settings)").fetchall()):
         _conn.execute("ALTER TABLE guild_settings ADD COLUMN timer_region TEXT")
+    if not any(r["name"] == "game_server" for r in _conn.execute("PRAGMA table_info(guild_settings)").fetchall()):
+        _conn.execute("ALTER TABLE guild_settings ADD COLUMN game_server TEXT")
     _conn.execute("DROP TABLE IF EXISTS timer_events")  # start times are worked out per server region now
     _conn.commit()
     _migrate_single_server()
@@ -391,7 +400,7 @@ def guild_ids() -> list[int]:
 
 
 def get_setting(guild_id: int, column: str):
-    assert column in ("announce_channel", "board_channel", "board_message", "timer_region")
+    assert column in ("announce_channel", "board_channel", "board_message", "timer_region", "game_server")
     row = conn().execute(f"SELECT {column} FROM guild_settings WHERE guild_id=?", (guild_id,)).fetchone()
     return row[column] if row else None
 
@@ -399,7 +408,7 @@ def get_setting(guild_id: int, column: str):
 def set_settings(guild_id: int, **values) -> None:
     ensure_guild(guild_id)
     for column in values:
-        assert column in ("announce_channel", "board_channel", "board_message", "timer_region")
+        assert column in ("announce_channel", "board_channel", "board_message", "timer_region", "game_server")
     sets = ", ".join(f"{k}=?" for k in values)
     conn().execute(f"UPDATE guild_settings SET {sets} WHERE guild_id=?", (*values.values(), guild_id))
     conn().commit()

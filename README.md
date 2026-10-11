@@ -41,7 +41,8 @@ Links (only you see the reply)
 - `/link site`, `/links`.
 
 Admin (Manage Server)
-- `/setup announcements [channel]`, `/setup region`, `/setup show`: optional notices channel, game region and current settings.
+- `/setup announcements [channel]`, `/setup region`, `/setup server`, `/setup show`: optional notices channel, game region, game server and current settings.
+- With a game server picked, field boss kills found in combat logs uploaded to the log server (`BOSS_KILLS_URL`) start respawn timers by themselves.
 - `/eventlist add|remove|show`: raid and world boss lists.
 - `/linkadmin add|remove`: your own extra links.
 

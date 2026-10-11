@@ -72,6 +72,7 @@ The bot reads the event schedule on gamers4.life (https://gamers4.life/aion-2/da
 
 - `/timers set name when`: sets when a timer starts. If the site lists that timer, every start moves by the same amount (up to 12 hours either way) and stays that way until you `/timers clear` it. Add `only_this_time:True` to change just one start, or `repeat:4h` to make it repeat. Without a site schedule it creates a new timer with the `category` you pick.
 - `/timers killed name`: a boss just died, so its respawn countdown starts now. The bot knows the respawn of the Verteron and Altgard field bosses (Eternal Gartua, Soul Ruler Kashapa and so on), so pick the name from the list and you are done. Silent Dartan and High Commander Lagta respawn at different speeds in each zone, so pick the one with your zone in its name. For any other boss add `respawn:4h` the first time. The bot remembers the length for next time. The name list covers every open-world boss in the Global client (Verteron, Altgard, Eltnen, Morheim and Reshanta), read once a day from aion2data.com, and the reply shows the boss's level and where it stands.
+- Kills from combat logs: when a server manager has picked your game server with `/setup server`, a field boss kill in a combat log uploaded from the Aion 2 Calc app starts that boss's respawn timer by itself, marked "from combat logs". It appears when the log is uploaded, not the moment the boss dies. A later `/timers killed` wins over it.
 - `/timers clear name`: removes the manual time and goes back to the site's schedule. Only the person who set it or a server manager can clear it.
 - The list shows who set each manual time.
 
@@ -164,6 +165,7 @@ These commands need the **Manage Server** permission. Their replies are private 
 | `/timer-setup` | Posts the live timer board here (`stop:True` removes it) |
 | `/setup announcements` | Picks the channel for reset and new-timer notices (leave empty to turn off) |
 | `/setup region` | Picks the game region whose server clock the timers and checklist resets follow |
+| `/setup server` | Picks your game server, so field boss kills in uploaded combat logs start respawn timers |
 | `/setup show` | Shows this server's settings |
 | `/eventlist add` | Adds a raid or world boss name to the event planner list |
 | `/eventlist remove` | Removes one from the list |

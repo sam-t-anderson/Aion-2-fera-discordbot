@@ -464,6 +464,8 @@ def build_embed(guild_id: int, category: Optional[str] = None, max_chars: Option
             edited = ""
             if r["set_by"] and r["mnext"] and (r["iv"] or r["mnext"] >= now):
                 edited = f" · set by <@{r['set_by']}>"
+            elif r["set_by"] == 0 and r["mnext"] and r["mnext"] >= now:
+                edited = " · from combat logs"
             if r["nxt"]:
                 line = f"**{r['name']}**: {util.ts(r['nxt'], 'R')} ({util.ts(r['nxt'], 't')}) · {timing}{edited}"
             else:
@@ -768,7 +770,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
         if not row:
             await interaction.response.send_message("There's no manual time saved for that name.", ephemeral=True)
             return
-        if row["set_by"] != interaction.user.id and not util.is_admin(interaction):
+        if row["set_by"] and row["set_by"] != interaction.user.id and not util.is_admin(interaction):
             await interaction.response.send_message(
                 f"Only <@{row['set_by']}> or a server manager can clear that. You can overwrite it with `/timers set`.",
                 ephemeral=True,

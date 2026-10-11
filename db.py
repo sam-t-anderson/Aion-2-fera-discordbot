@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS signups (
     status TEXT NOT NULL,
     role TEXT NOT NULL,
     power INTEGER,
+    gear_score INTEGER,
     party INTEGER,
     alert INTEGER NOT NULL DEFAULT 0,
     alerted INTEGER NOT NULL DEFAULT 0,
@@ -238,6 +239,8 @@ def init(path: str | None = None) -> None:
         _conn.execute("ALTER TABLE guild_settings ADD COLUMN timer_region TEXT")
     if not any(r["name"] == "game_server" for r in _conn.execute("PRAGMA table_info(guild_settings)").fetchall()):
         _conn.execute("ALTER TABLE guild_settings ADD COLUMN game_server TEXT")
+    if not any(r["name"] == "gear_score" for r in _conn.execute("PRAGMA table_info(signups)").fetchall()):
+        _conn.execute("ALTER TABLE signups ADD COLUMN gear_score INTEGER")
     _conn.execute("DROP TABLE IF EXISTS timer_events")  # start times are worked out per server region now
     _conn.commit()
     _migrate_single_server()

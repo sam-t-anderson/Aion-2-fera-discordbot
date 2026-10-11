@@ -135,6 +135,8 @@ def _player_line(s, with_party: bool = True) -> str:
     parts = [f"<@{s['user_id']}>"]
     if s["power"]:
         parts.append(f"{s['power']:,} CP")
+    if s["gear_score"]:
+        parts.append(f"{s['gear_score']:,} GS")
     if with_party and s["party"]:
         parts.append(f"P{s['party']}")
     return " · ".join(parts)
@@ -209,10 +211,12 @@ def panel_parts(ev, user_id: int):
         label, icon = ROLES[su["role"]]
         state = "✅ Yes" if su["status"] == "yes" else "❔ Maybe"
         cp = f"{su['power']:,}" if su["power"] else "not set"
+        gs = f"{su['gear_score']:,}" if su["gear_score"] else "not set"
         alert = f"on ({ev['alert_minutes']} min before)" if su["alert"] else "off"
         embed.description = (
             f"{state} as {icon} **{label}**\n"
             f"Combat power: **{cp}**\n"
+            f"Gear score: **{gs}**\n"
             f"DM alert: **{alert}**\n"
             + (f"Sub-party: **{su['party']}**\n" if su["party"] else "")
         )
@@ -233,7 +237,7 @@ def panel_parts(ev, user_id: int):
             )
             text = f"{'Yes' if status == 'yes' else 'Maybe'}: {label}"
             view.add_item(EvSet(ev["id"], status, role, text, style, row))
-    view.add_item(EvBtn("cp", ev["id"], "Set combat power", discord.ButtonStyle.secondary, row=2))
+    view.add_item(EvBtn("cp", ev["id"], "Set combat power / gear score", discord.ButtonStyle.secondary, row=2))
     view.add_item(
         EvBtn(
             "alert",
@@ -343,9 +347,9 @@ async def h_cp(interaction, event_id):
         return
     su = get_signup(event_id, interaction.user.id)
     if not su:
-        await interaction.response.send_message("Pick a role first, then set your combat power.", ephemeral=True)
+        await interaction.response.send_message("Pick a role first, then set your combat power and gear score.", ephemeral=True)
         return
-    await interaction.response.send_modal(CPModal(event_id, su["power"]))
+    await interaction.response.send_modal(CPModal(event_id, su["power"], su["gear_score"]))
 
 
 async def h_manage(interaction, event_id):
@@ -492,8 +496,22 @@ class EvSet(
         await refresh_message(interaction.client, self.event_id)
 
 
-class CPModal(discord.ui.Modal, title="Combat power"):
-    def __init__(self, event_id: int, current):
+def parse_stat(text: str, limit: int) -> Optional[int]:
+    """A typed number like 12500, 12,500 or 12.5k. None when left empty; ValueError when it isn't a sensible number."""
+    raw = text.strip().lower().replace(",", "").replace(" ", "")
+    if not raw:
+        return None
+    mult = 1
+    if raw.endswith("k"):
+        mult, raw = 1000, raw[:-1]
+    value = int(float(raw) * mult)   # float() raises ValueError on anything that isn't a number
+    if not 0 < value <= limit:
+        raise ValueError("out of range")
+    return value
+
+
+class CPModal(discord.ui.Modal, title="Combat power and gear score"):
+    def __init__(self, event_id: int, current, gear_score=None):
         super().__init__(timeout=300)
         self.event_id = event_id
         self.cp = discord.ui.TextInput(
@@ -503,26 +521,28 @@ class CPModal(discord.ui.Modal, title="Combat power"):
             default=str(current) if current else None,
             placeholder="For example 12500",
         )
+        self.gs = discord.ui.TextInput(
+            label="Your gear score (leave empty to clear)",
+            required=False,
+            max_length=7,
+            default=str(gear_score) if gear_score else None,
+            placeholder="For example 2100",
+        )
         self.add_item(self.cp)
+        self.add_item(self.gs)
 
     async def on_submit(self, interaction: discord.Interaction):
-        raw = self.cp.value.strip().lower().replace(",", "").replace(" ", "")
-        power = None
-        if raw:
-            mult = 1
-            if raw.endswith("k"):
-                mult, raw = 1000, raw[:-1]
-            try:
-                power = int(float(raw) * mult)
-            except ValueError:
-                await interaction.response.send_message("Enter a number, for example 12500 or 12.5k.", ephemeral=True)
-                return
-            if not 0 < power <= 99_999_999:
-                await interaction.response.send_message("That number looks off. Try again.", ephemeral=True)
-                return
+        try:
+            power = parse_stat(self.cp.value, 99_999_999)
+            gear_score = parse_stat(self.gs.value, 99_999)
+        except (ValueError, OverflowError):
+            await interaction.response.send_message(
+                "Enter plain numbers, for example 12500 or 12.5k for combat power and 2100 for gear score.", ephemeral=True
+            )
+            return
         db.conn().execute(
-            "UPDATE signups SET power=? WHERE event_id=? AND user_id=?",
-            (power, self.event_id, interaction.user.id),
+            "UPDATE signups SET power=?, gear_score=? WHERE event_id=? AND user_id=?",
+            (power, gear_score, self.event_id, interaction.user.id),
         )
         db.conn().commit()
         ev = get_event(self.event_id)

@@ -44,7 +44,7 @@ Raid, world boss and custom events need a `name`. For raids and world bosses, pi
 
 **On the event card**
 
-- **Sign up / edit**: choose Yes or Maybe, pick Tank, Healer or DPS, and optionally enter your combat power. People past the size limit go on a waitlist.
+- **Sign up / edit**: choose Yes or Maybe, pick Tank, Healer or DPS, and optionally enter your combat power and gear score with **Set combat power / gear score**. Both show next to your name on the event card. People past the size limit go on a waitlist.
 - **Leave**: remove yourself.
 - **Alert me**: a private DM before the event starts.
 - **Organizer**: auto-sort into sub-parties, clear parties or cancel. Organizer controls are for whoever created the event.

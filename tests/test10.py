@@ -6,7 +6,9 @@ import db, timers
 UTC = timezone.utc
 G = 1
 db.init(); c = db.conn(); db.ensure_guild(G)
-now = datetime.now(UTC).replace(second=0, microsecond=0)
+# A fixed moment, well away from any start: the checks below compare a 7-day window before and after
+# moving a timer, and with the real clock they failed whenever a start fell just inside the window's edge.
+now = datetime(2026, 10, 7, 13, 30, tzinfo=UTC)
 c.execute("INSERT INTO timer_rules (name, category, timing) VALUES ('Spacetime Rift','Rifts','every 3h from 02:00')")
 c.execute("INSERT INTO timer_rules (name, category, timing) VALUES ('Executor Argo','World Bosses','Mon, Thu, Sat at 21:30')")
 c.commit(); timers.purge_old()

@@ -31,7 +31,8 @@ LISTS = {
         "items": [
             ("dd", "Daily Dungeon", 14, False),
             ("asc", "Ascension Trial", 3, False),
-            ("cmd", "Abyss commander scrolls", 2, False),
+            ("cmdpve", "PvE command scroll missions", 12, False),
+            ("cmdpvp", "PvP command scroll missions", 12, False),
             ("alts", "Alts parked at level 22", 1, True),
         ],
     },

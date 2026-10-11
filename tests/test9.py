@@ -37,5 +37,15 @@ async def main():
     assert seen == [1, 2, 0, 1], seen            # 0/2 -> 1/2 -> 2/2 -> clears -> 1/2
     await press(bot, 42, "weekly", "dd")
     assert checklist.get_counts(42, "weekly", 1)["dd"] == 1
+    # PvE and PvP command scroll missions count separately, 12 each
+    for _ in range(3):
+        await press(bot, 42, "weekly", "cmdpve")
+    await press(bot, 42, "weekly", "cmdpvp")
+    counts = checklist.get_counts(42, "weekly", 1)
+    assert counts["cmdpve"] == 3 and counts["cmdpvp"] == 1
+    assert checklist.ITEM_MAX["weekly"]["cmdpve"] == 12 and checklist.ITEM_MAX["weekly"]["cmdpvp"] == 12
+    labels = [c.item.label for c in checklist.build_view("weekly", counts).children]
+    assert "PvE command scroll missions 3/12" in labels and "PvP command scroll missions 1/12" in labels, labels
+    assert len(labels) <= 25 and all(len(x) <= 80 for x in labels)
     print("CHECKLIST BUTTONS OK", seen)
 asyncio.run(main())

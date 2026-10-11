@@ -55,6 +55,6 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 - Keep player-facing text plain and friendly; admin-only features are labelled "(officers)" / "(admins)".
 
 ## Status / ideas not done
-- Online "AION 2 Bot Guide" Claude Doc is out of date (missing `/dkp event-button`, `/dkp-setup`, `only_this_time`); the markdown in `docs/` is current. `docs/AION2-Bot-Guide.pdf` is printed from `docs/PLAYER-GUIDE.md` (see `docs/make_pdf.py`); regenerate it when the guide changes.
+- Online "AION 2 Bot Guide" Claude Doc (https://claude.ai/artifact/3rdnTD3pcU6XUKxHfP1HPG) mirrors `docs/GUIDE-full.md`, last synced 2026-10-10; update both together. The markdown in `docs/` is current. `docs/AION2-Bot-Guide.pdf` is printed from `docs/PLAYER-GUIDE.md` (see `docs/make_pdf.py`); regenerate it when the guide changes.
 - Field boss kills only reach the feed when someone uploads a public log, so timers are as live as uploads are. Japan's official server-list code is a guess (`as`); check `/setup server` shows the right servers for a JP guild.
 - Optional: automatic scheduled DKP decay; DKP board could list members with zero DKP only with the privileged members intent.

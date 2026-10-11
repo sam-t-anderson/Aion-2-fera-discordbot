@@ -185,13 +185,21 @@ This section is for whoever hosts the bot. The bot runs in Docker on the home se
 | `DISCORD_TOKEN` | none | The bot token |
 | `GUILD_ID` | none | Only for upgrading from the one-server version: moves that server's old data over |
 | `ANNOUNCE_CHANNEL_ID` | none | Same: becomes that server's notices channel once. Servers now choose their own with `/setup announcements` |
-| `RESET_UTC_HOUR` | 13 | Daily reset hour in UTC (14 for the later option) |
-| `WEEKLY_RESET_WEEKDAY` | 0 | Weekly reset day, Monday is 0 |
+| `RESET_UTC_HOUR` | 13 | Fallback daily reset hour in UTC, used only while the site lists no Daily Reset timer |
+| `WEEKLY_RESET_WEEKDAY` | 0 | Fallback weekly reset day, Monday is 0 |
 | `DEFAULT_TZ` | America/Denver | Timezone for people who haven't set one |
+| `TIMERS_REGION` | Global | Which version of the site's schedule is accepted |
+| `TIMERS_DEFAULT_REGION` | na | Region clock a server follows until it runs `/setup region`: na, naw, eu, sa or jp |
 | `TIMER_CATEGORIES` | `*` | Site categories to track, or a comma list |
 | `TIMER_BOARD_MINUTES` | 2 | How often the live board is edited |
 | `TIMER_REFRESH_MINUTES` | 15 | How often the site is read (minimum 5) |
-| `TIMER_RETENTION_DAYS` | 7 | How long past timer data is kept |
+| `TIMER_RETENTION_DAYS` | 7 | How long past notification marks are kept |
+| `BOSS_DATA_URL` | aion2data.com feed | Where the open-world boss list is read from once a day. Empty turns it off |
+| `SERVER_LIST_URL` | official site | Where the game server list for `/setup server` is read from once a day. Empty turns it off |
+| `BOSS_KILLS_URL` | the log server | Feed of field boss kills from uploaded combat logs. Empty turns it off |
+| `BOSS_KILLS_MINUTES` | 1 | How often that feed is read |
+| `BOSS_KILLS_MIN_REPORTS` | 1 | How many different uploaders must record a kill before it starts a timer |
+| `HEALTH_HOST_PORT` | 8099 | Port on the server for the health page |
 
 After changing `.env`, run `docker compose up -d` in the folder.
 
@@ -201,4 +209,4 @@ The page `http://192.168.1.101:8099/health` returns 200 while the bot is connect
 
 **Upgrading**
 
-Extract the new files over the folder with `tar xzf aion2-bot.tar.gz --strip-components=1`, then run `docker compose up -d --build`. The `data/` folder holds everyone's progress and events, so leave it alone.
+Upgrades are automatic. The folder is a Git checkout of the bot's repository, and a timer checks every 15 minutes: when `main` has a new commit whose tests passed on GitHub, it copies `data/`, pulls, rebuilds the container and waits for the bot to report healthy. Run `sudo systemctl start aion2bot-update` to check now and `sudo journalctl -u aion2bot-update -n 40 --no-pager` to see what it did. To upgrade by hand, run `git pull --ff-only origin main` and then `docker compose up -d --build`. The `data/` folder holds everyone's progress and events, so leave it alone.

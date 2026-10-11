@@ -51,10 +51,11 @@ New global slash commands can take up to an hour to show up in Discord. The DB m
 - Embed limits: 4096 description, 6000 total per message.
 
 ## Sam's preferences
+- The PDF guide in the repo must always be the newest. After any change to `docs/PLAYER-GUIDE.md`, run `python docs/make_pdf.py` (needs `pip install markdown` and Chrome or Edge) and commit `docs/AION2-Bot-Guide.pdf` with its `.source-sha256` stamp in the same change. `tests/test16.py` fails in CI while they don't match, which blocks the deploy.
 - Give exact copy-paste commands for any file edit or server step.
 - Keep player-facing text plain and friendly; admin-only features are labelled "(officers)" / "(admins)".
 
 ## Status / ideas not done
-- Online "AION 2 Bot Guide" Claude Doc (https://claude.ai/artifact/3rdnTD3pcU6XUKxHfP1HPG) mirrors `docs/GUIDE-full.md`, last synced 2026-10-10; update both together. The markdown in `docs/` is current. `docs/AION2-Bot-Guide.pdf` is printed from `docs/PLAYER-GUIDE.md` (see `docs/make_pdf.py`); regenerate it when the guide changes.
+- Online "AION 2 Bot Guide" Claude Doc (https://claude.ai/artifact/3rdnTD3pcU6XUKxHfP1HPG) mirrors `docs/GUIDE-full.md`, last synced 2026-10-10; update both together. The markdown in `docs/` is current. 
 - Field boss kills only reach the feed when someone uploads a public log, so timers are as live as uploads are. Japan's official server-list code is a guess (`as`); check `/setup server` shows the right servers for a JP guild.
 - Optional: automatic scheduled DKP decay; DKP board could list members with zero DKP only with the privileged members intent.

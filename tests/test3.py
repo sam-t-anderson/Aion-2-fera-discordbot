@@ -64,7 +64,7 @@ async def main():
     assert timers.canonical(A, "RESHANTA boss")[0] == "Reshanta Boss"
     assert timers.canonical(B, "Reshanta Boss") == ("Reshanta Boss", None, None)
     assert "Reshanta Boss" in timers.all_names(A) and "Reshanta Boss" not in timers.all_names(B)
-    assert "Field Bosses" in timers.all_categories(A) and "Field Bosses" not in timers.all_categories(B)
+    assert "Field Bosses" in timers.all_categories(A) and "Field Bosses" in timers.all_categories(B)  # now a built-in section for every server
     ea, eb = timers.build_embed(A), timers.build_embed(B)
     assert "Reshanta Boss" in str(ea.to_dict()) and "Reshanta Boss" not in str(eb.to_dict())
     assert timers.build_embed(A, "Nothing") is None

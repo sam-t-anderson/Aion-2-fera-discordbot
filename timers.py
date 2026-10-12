@@ -234,6 +234,8 @@ def store_rules(rows: list[tuple[str, str, str]], now_ts: Optional[int] = None):
 
 # ---------------------------------------------------------------- storage: manual timers (per server)
 FIELD_RESPAWNS = gamedata.field_boss_respawns()  # built-in field bosses: timer name -> respawn minutes
+FIELD_FACTIONS = gamedata.field_boss_factions()  # same timer names -> faction ("elyos"/"asmodian"/"both")
+FIELD_CATEGORY, ABYSS_CATEGORY = "Field Bosses", "Abyss (contested)"
 
 
 def field_respawn(name: str) -> Optional[int]:
@@ -392,7 +394,8 @@ def all_categories(guild_id: int) -> list[str]:
            UNION SELECT category FROM guild_timer_manual WHERE guild_id=?) ORDER BY category""",
         (guild_id,),
     ).fetchall()
-    return [r["category"] for r in rows]
+    # The built-in field-boss sections always exist even without a stored row for them.
+    return sorted({r["category"] for r in rows} | {FIELD_CATEGORY, ABYSS_CATEGORY})
 
 
 def _add_chunked(embed: discord.Embed, name: str, lines: list[str]) -> None:
@@ -435,6 +438,23 @@ def build_embed(guild_id: int, category: Optional[str] = None, max_chars: Option
     for key, m in manual.items():
         if key not in known:
             rows.append({"name": m["name"], "category": m["category"], "timing": None})
+    # Field bosses aren't on the timers site. List the ones for this server's faction (and the
+    # contested Abyss bosses, shown to everyone) so they appear even before a kill is recorded.
+    # A boss that already has a real row (scraped or /timers killed) keeps it instead of this
+    # reference line. Faction None = show both factions.
+    have = {r["name"].lower() for r in rows}
+    faction = db.get_setting(guild_id, "faction")
+    for disp, mins in FIELD_RESPAWNS.items():
+        if disp.lower() in have:
+            continue
+        bf = FIELD_FACTIONS.get(disp, "both")
+        if faction and bf != "both" and bf != faction:
+            continue
+        rows.append({"name": disp, "category": FIELD_CATEGORY, "reference": True,
+                     "timing": f"respawn {_fmt_minutes(mins)} after kill — not seen yet"})
+    for name, _zone, sched in gamedata.ABYSS_BOSSES:
+        if name.lower() not in have:
+            rows.append({"name": name, "category": ABYSS_CATEGORY, "reference": True, "timing": sched})
     for r in rows:
         m = manual.get(r["name"].lower())
         r["nxt"] = upcoming.get(r["name"].lower())
@@ -468,6 +488,8 @@ def build_embed(guild_id: int, category: Optional[str] = None, max_chars: Option
                 edited = " · from combat logs"
             if r["nxt"]:
                 line = f"**{r['name']}**: {util.ts(r['nxt'], 'R')} ({util.ts(r['nxt'], 't')}) · {timing}{edited}"
+            elif r.get("reference"):
+                line = f"**{r['name']}**: {timing}"          # a built-in field boss with no recorded kill yet
             else:
                 line = f"**{r['name']}**: no upcoming time found · {timing}"
             line = util.cut(line, 300)

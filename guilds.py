@@ -142,6 +142,18 @@ class ServerSetup(commands.Cog):
             if current.lower() in gameservers.label(r).lower()
         ][:25]
 
+    @group.command(name="faction", description="Pick your faction so field-boss timers skip the enemy faction's bosses")
+    @app_commands.describe(faction="Your faction. Leave empty to show both factions' field bosses")
+    @app_commands.choices(faction=[app_commands.Choice(name=label, value=key) for key, label in gamedata.FACTION_LABELS.items()])
+    async def faction(self, interaction: discord.Interaction, faction: Optional[str] = None):
+        if not util.is_admin(interaction):
+            await interaction.response.send_message("You need the Manage Server permission.", ephemeral=True)
+            return
+        db.set_settings(interaction.guild_id, faction=faction or None)
+        who = f"**{gamedata.FACTION_LABELS[faction]}**" if faction in gamedata.FACTION_LABELS else "**both factions'**"
+        await interaction.response.send_message(
+            f"Done. Field-boss timers now show {who} bosses (contested Abyss bosses always show).", ephemeral=True)
+
     @group.command(name="show", description="Show this server's settings")
     async def show(self, interaction: discord.Interaction):
         if not util.is_admin(interaction):
@@ -151,9 +163,11 @@ class ServerSetup(commands.Cog):
         db.ensure_guild(gid)
         announce = db.get_setting(gid, "announce_channel")
         board_c, board_m = db.get_setting(gid, "board_channel"), db.get_setting(gid, "board_message")
+        fac = db.get_setting(gid, "faction")
         lines = [
             f"Game region: {gamedata.REGIONS[timers.region_key(gid)][1]} (`/setup region` to change)",
             "Game server: " + (gameservers.label(gameservers.guild_server(gid)) if gameservers.guild_server(gid) else "not set (`/setup server` to choose one)"),
+            "Faction: " + (gamedata.FACTION_LABELS[fac] if fac in gamedata.FACTION_LABELS else "both (`/setup faction` to choose one)"),
             f"Notices channel: {f'<#{announce}>' if announce else 'off (`/setup announcements` to choose one)'}",
             f"Timer board: {f'https://discord.com/channels/{gid}/{board_c}/{board_m}' if board_c and board_m else 'none (`/timer-setup` posts one)'}",
         ]

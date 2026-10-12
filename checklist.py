@@ -32,7 +32,7 @@ LISTS = {
             ("dd", "Daily Dungeon", 14, False),
             ("asc", "Ascension Trial", 3, False),
             ("cmdpve", "PvE command scroll missions", 12, False),
-            ("cmdpvp", "PvP command scroll missions", 12, False),
+            ("cmdpvp", "PvP command scroll missions", 20, False),
             ("alts", "Alts parked at level 22", 1, True),
         ],
     },

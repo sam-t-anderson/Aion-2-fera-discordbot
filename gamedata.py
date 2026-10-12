@@ -69,9 +69,42 @@ FIELD_BOSSES = [
 ]
 
 
+# Which faction each field-boss starting zone belongs to. Bosses whose zone isn't here
+# (the contested Abyss list below) are shown to both factions.
+ZONE_FACTION = {"Verteron": "elyos", "Altgard": "asmodian"}
+FACTIONS = ("elyos", "asmodian")
+FACTION_LABELS = {"elyos": "Elyos", "asmodian": "Asmodian"}
+
+# Contested Abyss / Reshanta field bosses. Unlike the zone field bosses these follow a
+# community schedule rather than a respawn-after-kill, and are shown to both factions.
+# Community-sourced timers (confirm in game); spelled as in the Global client.
+# (name, zone, community schedule text)
+ABYSS_BOSSES = [
+    ("Watcher Kaira", "Chaotic Lower Reshanta", "every 3h from 01:00 server time"),
+    ("Executor Tamasa", "Chaotic Lower Reshanta", "Mon, Thu, Sat 21:30 server time (after Artifact Siege)"),
+    ("Executor Argo", "Siel's Heart", "Mon, Thu, Sat 21:30 server time (after Artifact Siege)"),
+    ("Executor Kaira", "Branding Island", "Mon, Thu, Sat 21:30 server time (after Artifact Siege)"),
+    ("Guardian Lord Nahma", "Chaotic Lower Reshanta", "Fri and Sun 21:00 server time"),
+    ("Argo the Spirit King", "Chaotic Lower Reshanta", "no reliable community timer yet — confirm in game"),
+]
+
+
 def field_boss_names() -> list[str]:
     """Every field boss once, for the event planner's boss list."""
     return sorted({name for name, _zone, _mins in FIELD_BOSSES})
+
+
+def field_boss_factions() -> dict[str, str]:
+    """Display name (matching field_boss_respawns' keys) -> faction. A boss that lives in
+    both factions' zones with the same respawn (one un-suffixed key) is marked "both"."""
+    mins_by_name: dict[str, set] = {}
+    for name, _zone, mins in FIELD_BOSSES:
+        mins_by_name.setdefault(name, set()).add(mins)
+    facs: dict[str, set] = {}
+    for name, zone, _mins in FIELD_BOSSES:
+        key = name if len(mins_by_name[name]) == 1 else f"{name} ({zone})"
+        facs.setdefault(key, set()).add(ZONE_FACTION.get(zone, "both"))
+    return {k: (next(iter(v)) if len(v) == 1 else "both") for k, v in facs.items()}
 
 
 def field_boss_respawns() -> dict[str, int]:

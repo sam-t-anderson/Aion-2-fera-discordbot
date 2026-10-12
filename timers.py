@@ -264,6 +264,15 @@ def canonical(guild_id: int, name: str):
         return row["name"], bosscatalog.category(row), None
     if b:
         return b["name"], "World Bosses", None
+    # Contested Abyss bosses aren't on the site schedule, the field-respawn list or the boss
+    # catalog, so nothing above classifies them and the live kill feed couldn't time them. As a
+    # fallback (it never overrides a classification above), match a fed name — which carries the
+    # catalog spelling, e.g. "Argo, the Spirit King" — to the bundled Abyss list punctuation-
+    # insensitively, so a fed kill can time an Abyss boss like a field boss timed from a kill.
+    simple = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+    for known, _zone, _sched in gamedata.ABYSS_BOSSES:
+        if re.sub(r"[^a-z0-9]+", " ", known.lower()).strip() == simple:
+            return known, ABYSS_CATEGORY, None
     return name, None, None
 
 

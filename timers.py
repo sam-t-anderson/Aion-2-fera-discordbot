@@ -982,13 +982,19 @@ class TimerBoard(commands.Cog):
         await self.bot.wait_until_ready()
 
     @app_commands.command(name="timer-setup", description="Post a live timer board in this channel (admins)")
-    @app_commands.describe(stop="Remove the board and stop updating it")
+    @app_commands.describe(stop="Remove the board and stop updating it",
+                           region="Optional: set this server's game region first, so the board's times are right",
+                           server="Optional: set this server's game server first, for field-boss kill timers")
+    @app_commands.choices(
+        region=[app_commands.Choice(name=f"{full} ({short})", value=key) for key, (short, full, _tz) in gamedata.REGIONS.items()])
     @app_commands.default_permissions(manage_guild=True)
     @app_commands.guild_only()
-    async def timer_setup(self, interaction: discord.Interaction, stop: bool = False):
+    async def timer_setup(self, interaction: discord.Interaction, stop: bool = False,
+                          region: Optional[str] = None, server: Optional[str] = None):
         if not util.is_admin(interaction):
             await interaction.response.send_message("Only server managers can do that.", ephemeral=True)
             return
+        import gameservers
         gid = interaction.guild_id
         await interaction.response.defer(ephemeral=True)
         try:
@@ -1004,6 +1010,32 @@ class TimerBoard(commands.Cog):
             self._forget(gid)
             await interaction.followup.send("Timer board removed.", ephemeral=True)
             return
+        # Optionally set this guild's region/server before posting, so a board can be put up
+        # correctly in one step instead of running /setup region and /setup server separately.
+        # Same validation as those commands: region is a known choice; server must match the
+        # region's official list. If a given value is wrong, stop before posting rather than
+        # pinning a board to the wrong clock.
+        notes = []
+        if region is not None:
+            db.set_settings(gid, timer_region=region)
+            if db.get_setting(gid, "game_server") and not gameservers.guild_server(gid):
+                db.set_settings(gid, game_server=None)   # old server was in another region
+            notes.append(f"region **{gamedata.REGIONS[region][1]}**")
+        if server:
+            rows = gameservers.servers(region_key(gid))
+            typed = server.strip().lower()
+            match = ([r for r in rows if r["server_id"] == typed]
+                     or [r for r in rows if gameservers.label(r).lower() == typed]
+                     or [r for r in rows if r["name"].lower() == typed])
+            if len(match) != 1:
+                await interaction.followup.send(
+                    f"I couldn't match that game server to the {gamedata.REGIONS[region_key(gid)][1]} list. "
+                    "Pick one from the suggestions (or set the region first, then the server).",
+                    ephemeral=True,
+                )
+                return
+            db.set_settings(gid, game_server=match[0]["server_id"])
+            notes.append(f"server **{gameservers.label(match[0])}**")
         try:
             message = await interaction.channel.send(embed=self._board_embed(gid))
         except discord.HTTPException:
@@ -1014,11 +1046,24 @@ class TimerBoard(commands.Cog):
             return
         db.set_settings(gid, board_channel=message.channel.id, board_message=message.id)
         self._last_payload.pop(gid, None)
+        prefix = ("Set " + " and ".join(notes) + ". ") if notes else ""
         await interaction.followup.send(
-            f"Board posted. It updates every {config.TIMER_BOARD_MINUTES} minutes (the countdowns themselves tick live). "
+            f"{prefix}Board posted for the **{gamedata.REGIONS[region_key(gid)][1]}** schedule. "
+            f"It updates every {config.TIMER_BOARD_MINUTES} minutes (the countdowns themselves tick live). "
             "Run `/timer-setup` in another channel to move it, or `/timer-setup stop:True` to remove it.",
             ephemeral=True,
         )
+
+    @timer_setup.autocomplete("server")
+    async def _timer_setup_server_ac(self, interaction: discord.Interaction, current: str):
+        """Suggest servers for the region being chosen in this same command (or the guild's
+        current region if none is typed yet), like /setup server does."""
+        import gameservers
+        region = getattr(interaction.namespace, "region", None) or region_key(interaction.guild_id)
+        rows = gameservers.servers(region)
+        cur = (current or "").strip().lower()
+        return [app_commands.Choice(name=gameservers.label(r), value=r["server_id"])
+                for r in rows if cur in gameservers.label(r).lower()][:25]
 
 
 async def setup(bot: commands.Bot):

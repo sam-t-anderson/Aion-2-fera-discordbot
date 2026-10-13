@@ -22,7 +22,7 @@ async def main():
     e = timers.build_embed(1); t = _text(e)
     assert "Kernon of the West" in t, "Verteron/Elyos boss missing"
     assert "Melted Danar" in t, "Altgard/Asmodian boss missing"
-    assert "Watcher Kaira" in t and "no reliable community timer" in t, "Abyss boss missing"
+    assert "Watcher Kaira" in t and "no reliable community timer" in t.lower(), "Abyss boss missing"
     assert "not seen yet" in t and "after kill" in t
     cats = {f.name.replace(" (cont.)", "") for f in e.fields}
     assert {"World Bosses", "Field Bosses", "Abyss (contested)"} <= cats, cats

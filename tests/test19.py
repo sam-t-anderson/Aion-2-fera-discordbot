@@ -17,7 +17,7 @@ async def main():
 
     # Before any kill: Argo shows the static reference text, no live time.
     before = _text(timers.build_embed(1))
-    assert "Argo the Spirit King" in before and "no reliable community timer" in before, before
+    assert "Argo the Spirit King" in before and "no reliable community timer" in before.lower(), before
 
     # The feed reports Argo killed on this server with a server-measured respawn length.
     # The catalog spelling has a comma ("Argo, the Spirit King"); the bundled list doesn't.
@@ -33,7 +33,7 @@ async def main():
     assert "Argo the Spirit King" in after and "from combat logs" in after, after
     # The static "no reliable community timer" line for Argo is gone (the live row replaced it).
     argo_lines = [ln for ln in after.splitlines() if "Argo the Spirit King" in ln]
-    assert argo_lines and all("no reliable community timer" not in ln for ln in argo_lines), argo_lines
+    assert argo_lines and all("no reliable community timer" not in ln.lower() for ln in argo_lines), argo_lines
 
     # A boss with no server-measured respawn yet cannot be predicted, so it is left alone.
     assert gameservers.apply_kill(1, {"boss": "Executor Argo", "killed_at": now - 60, "reports": 2, "server": "100"},

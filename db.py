@@ -30,7 +30,15 @@ CREATE TABLE IF NOT EXISTS guild_settings (
     timer_region TEXT,
     game_server TEXT,
     faction TEXT,
+    news_channel INTEGER,
+    news_region TEXT,
     joined_at INTEGER NOT NULL);
+
+CREATE TABLE IF NOT EXISTS news_posted (
+    guild_id INTEGER NOT NULL,
+    article_id TEXT NOT NULL,
+    posted_at INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, article_id));
 
 CREATE TABLE IF NOT EXISTS game_servers (
     server_id TEXT PRIMARY KEY,
@@ -242,6 +250,9 @@ def init(path: str | None = None) -> None:
         _conn.execute("ALTER TABLE guild_settings ADD COLUMN game_server TEXT")
     if not any(r["name"] == "faction" for r in _conn.execute("PRAGMA table_info(guild_settings)").fetchall()):
         _conn.execute("ALTER TABLE guild_settings ADD COLUMN faction TEXT")
+    for column in ("news_channel INTEGER", "news_region TEXT"):
+        if not any(r["name"] == column.split()[0] for r in _conn.execute("PRAGMA table_info(guild_settings)").fetchall()):
+            _conn.execute(f"ALTER TABLE guild_settings ADD COLUMN {column}")
     if not any(r["name"] == "gear_score" for r in _conn.execute("PRAGMA table_info(signups)").fetchall()):
         _conn.execute("ALTER TABLE signups ADD COLUMN gear_score INTEGER")
     _conn.execute("DROP TABLE IF EXISTS timer_events")  # start times are worked out per server region now
@@ -395,7 +406,7 @@ def ensure_guild(guild_id: int, seed: bool = True) -> bool:
 def forget_guild(guild_id: int) -> None:
     """The bot was removed from a server: drop that server's settings and lists."""
     c = conn()
-    for table in ("guild_settings", "guild_bosses", "guild_links", "guild_timer_manual", "guild_timer_subs",
+    for table in ("guild_settings", "guild_bosses", "guild_links", "guild_timer_manual", "guild_timer_subs", "news_posted",
                   "dkp_config", "dkp_ledger", "dkp_rewards", "dkp_batches", "dkp_boards", "loot_items", "loot_reservations"):
         c.execute(f"DELETE FROM {table} WHERE guild_id=?", (guild_id,))
     c.commit()
@@ -405,8 +416,12 @@ def guild_ids() -> list[int]:
     return [r["guild_id"] for r in conn().execute("SELECT guild_id FROM guild_settings").fetchall()]
 
 
+SETTING_COLUMNS = ("announce_channel", "board_channel", "board_message", "timer_region", "game_server", "faction",
+                   "news_channel", "news_region")
+
+
 def get_setting(guild_id: int, column: str):
-    assert column in ("announce_channel", "board_channel", "board_message", "timer_region", "game_server", "faction")
+    assert column in SETTING_COLUMNS
     row = conn().execute(f"SELECT {column} FROM guild_settings WHERE guild_id=?", (guild_id,)).fetchone()
     return row[column] if row else None
 
@@ -414,10 +429,15 @@ def get_setting(guild_id: int, column: str):
 def set_settings(guild_id: int, **values) -> None:
     ensure_guild(guild_id)
     for column in values:
-        assert column in ("announce_channel", "board_channel", "board_message", "timer_region", "game_server", "faction")
+        assert column in SETTING_COLUMNS
     sets = ", ".join(f"{k}=?" for k in values)
     conn().execute(f"UPDATE guild_settings SET {sets} WHERE guild_id=?", (*values.values(), guild_id))
     conn().commit()
+
+
+def news_guilds() -> list[int]:
+    """Servers that chose a news channel with /setup news."""
+    return [r["guild_id"] for r in conn().execute("SELECT guild_id FROM guild_settings WHERE news_channel IS NOT NULL").fetchall()]
 
 
 def announce_channels() -> list[tuple[int, int]]:

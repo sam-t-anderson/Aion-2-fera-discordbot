@@ -6,7 +6,7 @@ The bot gives each player a private daily and weekly checklist, plans group even
 
 Anyone with the invite link can add the bot to their server, and it works right away. Nothing needs configuring. Each server has its own event boss lists, links, manual timers, timer board and notices channel, so servers never affect each other.
 
-On joining, the bot posts a short welcome message. Commands are global, so brand-new commands can take up to an hour to appear in Discord. Server managers can optionally run `/setup announcements` to choose a channel for checklist reset and new-timer notices. Those notices are off until a channel is chosen. `/setup region` picks the game region (NA East, NA West, EU, SA or JP) whose server clock the timers and checklist resets follow; it is NA East until a manager chooses. `/setup show` lists the current settings.
+On joining, the bot posts a short welcome message. Commands are global, so brand-new commands can take up to an hour to appear in Discord. Server managers can optionally run `/setup announcements` to choose a channel for checklist reset and new-timer notices. Those notices are off until a channel is chosen. `/setup region` picks the game region (NA East, NA West, EU, SA or JP) whose server clock the timers and checklist resets follow; it is NA East until a manager chooses. `/setup news`, run in a channel, posts the official AION 2 news there as it appears. `/setup show` lists the current settings.
 
 ## Checklists
 
@@ -166,6 +166,7 @@ These commands need the **Manage Server** permission. Their replies are private 
 | `/setup announcements` | Picks the channel for reset and new-timer notices (leave empty to turn off) |
 | `/setup region` | Picks the game region whose server clock the timers and checklist resets follow |
 | `/setup server` | Picks your game server, so field boss kills in uploaded combat logs start respawn timers |
+| `/setup news` | Posts the official AION 2 news (notices and updates) in the channel you run it in, each article with its link preview. Follows `/setup region` unless you pick Korea, Taiwan or all regions; the first post is the newest article only, and nothing is posted twice. `stop:True` turns it off |
 | `/setup show` | Shows this server's settings |
 | `/eventlist add` | Adds a raid or world boss name to the event planner list |
 | `/eventlist remove` | Removes one from the list |

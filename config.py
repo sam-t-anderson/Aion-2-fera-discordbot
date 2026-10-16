@@ -52,6 +52,10 @@ BOSS_KILLS_URL = os.getenv("BOSS_KILLS_URL", "https://island-1.tailbe3340.ts.net
 BOSS_KILLS_MINUTES = max(1, _int("BOSS_KILLS_MINUTES", 1))
 # How many different uploaders must have recorded a kill before it starts a timer.
 BOSS_KILLS_MIN_REPORTS = max(1, _int("BOSS_KILLS_MIN_REPORTS", 1))
+# Official news (notices and updates) read from the log server's feed, posted by /setup news. Empty turns it off.
+NEWS_URL = os.getenv("NEWS_URL", "https://island-1.tailbe3340.ts.net/api/v1/news").strip()
+NEWS_MINUTES = max(5, _int("NEWS_MINUTES", 15))
+NEWS_MAX_PER_CYCLE = max(1, _int("NEWS_MAX_PER_CYCLE", 5))
 USER_AGENT = "AION2DiscordBot/2.0 (personal server bot; checks every 15 min)"
 
 # Health endpoint for Uptime Kuma / Homepage (port inside the container)

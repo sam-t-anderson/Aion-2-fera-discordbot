@@ -9,9 +9,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import config
 import db
 import gamedata
 import gameservers
+import news
 import timers
 import util
 
@@ -24,7 +26,8 @@ WELCOME = (
     "**Server managers (Manage Server):** `/checklist-setup` posts the checklist buttons, `/timer-setup` posts a live timer board, "
     "`/setup region` picks your game region so timers and resets follow your server's clock (NA East until you choose), "
     "`/setup server` picks your game server so field boss kills from uploaded combat logs start respawn timers, "
-    "and `/setup announcements` picks a channel for reset and new-timer notices (off until you choose one).\n\n"
+    "`/setup announcements` picks a channel for reset and new-timer notices (off until you choose one), "
+    "and `/setup news` run in a channel posts the official AION 2 news there as it appears.\n\n"
     "Replies to most commands are private, so this won't spam your channels."
 )
 
@@ -154,6 +157,43 @@ class ServerSetup(commands.Cog):
         await interaction.response.send_message(
             f"Done. Field-boss timers now show {who} bosses (contested Abyss bosses always show).", ephemeral=True)
 
+    @group.command(name="news", description="Post the official AION 2 news (notices and updates) in this channel as it appears")
+    @app_commands.describe(region="Which region's boards to post. Leave empty to follow /setup region",
+                           stop="True turns news posting off for this server")
+    @app_commands.choices(region=[app_commands.Choice(name=label, value=key) for key, label in news.CHOICES.items()])
+    async def news_feed(self, interaction: discord.Interaction, region: Optional[str] = None, stop: bool = False):
+        if not util.is_admin(interaction):
+            await interaction.response.send_message("You need the Manage Server permission.", ephemeral=True)
+            return
+        gid = interaction.guild_id
+        if stop:
+            db.set_settings(gid, news_channel=None)
+            await interaction.response.send_message("News posting is off for this server.", ephemeral=True)
+            return
+        channel = interaction.channel
+        perms = channel.permissions_for(interaction.guild.me) if interaction.guild else None
+        if perms is None or not (perms.view_channel and perms.send_messages and perms.embed_links):
+            await interaction.response.send_message(
+                "I can't post news here. Give me View Channel, Send Messages and Embed Links in this channel (the link "
+                "preview needs Embed Links), then run `/setup news` again.",
+                ephemeral=True,
+            )
+            return
+        choice = region if region in news.CHOICES and region != "auto" else None
+        db.set_settings(gid, news_channel=channel.id, news_region=choice)
+        await interaction.response.send_message(
+            f"Done. I'll post the official AION 2 news in {channel.mention} as it appears — {news.describe(gid)}. "
+            f"The newest article comes first, then every new one within about {config.NEWS_MINUTES} minutes of being "
+            "published. `/setup news stop:True` turns it off.",
+            ephemeral=True,
+        )
+        cog = interaction.client.get_cog("News") if interaction.client else None
+        if cog is not None:
+            try:
+                await cog.publish(gid)
+            except Exception:
+                log.exception("First news post failed in server %s", gid)
+
     @group.command(name="show", description="Show this server's settings")
     async def show(self, interaction: discord.Interaction):
         if not util.is_admin(interaction):
@@ -170,6 +210,8 @@ class ServerSetup(commands.Cog):
             "Faction: " + (gamedata.FACTION_LABELS[fac] if fac in gamedata.FACTION_LABELS else "both (`/setup faction` to choose one)"),
             f"Notices channel: {f'<#{announce}>' if announce else 'off (`/setup announcements` to choose one)'}",
             f"Timer board: {f'https://discord.com/channels/{gid}/{board_c}/{board_m}' if board_c and board_m else 'none (`/timer-setup` posts one)'}",
+            "News: " + (f"<#{db.get_setting(gid, 'news_channel')}> — {news.describe(gid)}" if db.get_setting(gid, "news_channel")
+                        else "off (run `/setup news` in a channel to post the official news there)"),
         ]
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
 

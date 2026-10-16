@@ -16,6 +16,7 @@ import gameservers
 import guilds
 import health
 import links
+import news
 import timers
 
 log = logging.getLogger("aion2")
@@ -45,7 +46,7 @@ class AionBot(commands.Bot):
 
     async def setup_hook(self):
         db.init()
-        for module in (checklist, events, timers, bosscatalog, gameservers, links, guilds, dkp):
+        for module in (checklist, events, timers, bosscatalog, gameservers, links, guilds, dkp, news):
             await module.setup(self)
         # Commands are global, so any server that adds the bot gets them (new ones can take up to an hour to show).
         await self.tree.sync()

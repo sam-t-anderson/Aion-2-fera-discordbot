@@ -77,29 +77,42 @@ def _short_zone(zone: str) -> str:
     return (zone or "").split("·")[0].strip() or (zone or "")
 
 
+def parse(doc):
+    """Validate a field-bosses document and return (field_bosses, abyss_bosses, faction_by_key).
+    ``field_bosses`` are ``(name, short_zone, minutes)`` non-Abyss rows; ``abyss_bosses`` are
+    ``(name, zone, schedule_text)``; ``faction_by_key`` maps ``(name, short_zone)`` to the boss's
+    faction for ``field_boss_factions``. Raises ValueError for anything not worth trusting."""
+    if not isinstance(doc, dict):
+        raise ValueError("field bosses must be a JSON object")
+    rows = doc.get("bosses")
+    if not isinstance(rows, list) or len(rows) < 20 or len(rows) > 2000:
+        raise ValueError("field-bosses.json has too few (or too many) bosses to trust")
+    field, abyss, faction = [], [], {}
+    for r in rows:
+        if not isinstance(r, dict) or not isinstance(r.get("name"), str) or not r["name"].strip():
+            raise ValueError("every boss needs a name")
+        name, fac, zone = " ".join(r["name"].split())[:60], r.get("faction"), r.get("zone") or ""
+        if not isinstance(zone, str) or fac not in (None, "elyos", "asmodian", "both", "abyss"):
+            raise ValueError(f"bad zone or faction for {name}")
+        mins = r.get("respawn_minutes")
+        if fac == "abyss" or mins is None:
+            sched = r.get("schedule")
+            abyss.append((name, zone[:80], (sched if isinstance(sched, str) and sched.strip() else "community schedule — confirm in game")[:120]))
+        else:
+            if isinstance(mins, bool) or not isinstance(mins, (int, float)) or not 1 <= mins <= 60 * 24 * 14:
+                raise ValueError(f"bad respawn for {name}")
+            short = _short_zone(zone)
+            field.append((name, short, int(mins)))
+            faction[(name, short)] = fac or ZONE_FACTION.get(short, "both")
+    if not field:
+        raise ValueError("field-bosses.json has no respawn-timed field bosses")
+    return field, abyss, faction
+
+
 def _load():
-    """Return (field_bosses, abyss_bosses, faction_by_key) from the shared JSON, or the
-    built-in fallback. ``field_bosses`` are ``(name, short_zone, minutes)`` non-Abyss rows;
-    ``abyss_bosses`` are ``(name, zone, schedule_text)``; ``faction_by_key`` maps
-    ``(name, short_zone)`` to the boss's faction for ``field_boss_factions``."""
+    """The tables from the bundled JSON, or the built-in fallback if it can't be read."""
     try:
-        doc = json.loads(_FIELD_BOSSES_JSON.read_text(encoding="utf-8"))
-        rows = doc["bosses"]
-        if not isinstance(rows, list) or len(rows) < 20:
-            raise ValueError("field-bosses.json has too few bosses to trust")
-        field, abyss, faction = [], [], {}
-        for r in rows:
-            name, fac, zone = str(r["name"]).strip(), r.get("faction"), r.get("zone") or ""
-            mins = r.get("respawn_minutes")
-            if fac == "abyss" or mins is None:
-                abyss.append((name, zone, r.get("schedule") or "community schedule — confirm in game"))
-            else:
-                short = _short_zone(zone)
-                field.append((name, short, int(mins)))
-                faction[(name, short)] = fac or ZONE_FACTION.get(short, "both")
-        if not field:
-            raise ValueError("field-bosses.json has no respawn-timed field bosses")
-        return field, abyss, faction
+        return parse(json.loads(_FIELD_BOSSES_JSON.read_text(encoding="utf-8")))
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         field = list(_BUILTIN_FIELD_BOSSES)
         faction = {(n, z): ZONE_FACTION.get(z, "both") for n, z, _m in field}
@@ -107,6 +120,18 @@ def _load():
 
 
 FIELD_BOSSES, ABYSS_BOSSES, _FIELD_FACTION = _load()
+
+
+def apply(doc) -> int:
+    """Replace the live tables with a validated document, in place, so every module holding
+    FIELD_BOSSES / ABYSS_BOSSES keeps working (timers.py refreshes its derived maps itself).
+    Returns the number of bosses taken. An invalid document raises and changes nothing."""
+    field, abyss, faction = parse(doc)
+    FIELD_BOSSES[:] = field
+    ABYSS_BOSSES[:] = abyss
+    _FIELD_FACTION.clear()
+    _FIELD_FACTION.update(faction)
+    return len(field) + len(abyss)
 
 
 def field_boss_names() -> list[str]:

@@ -52,6 +52,9 @@ BOSS_KILLS_URL = os.getenv("BOSS_KILLS_URL", "https://island-1.tailbe3340.ts.net
 BOSS_KILLS_MINUTES = max(1, _int("BOSS_KILLS_MINUTES", 1))
 # How many different uploaders must have recorded a kill before it starts a timer.
 BOSS_KILLS_MIN_REPORTS = max(1, _int("BOSS_KILLS_MIN_REPORTS", 1))
+# The published copy of the shared field-boss reference (the Aion 2 tools Pages site), read once a day so
+# new field bosses appear without redeploying the bot. Empty keeps the bundled file only.
+FIELD_BOSSES_URL = os.getenv("FIELD_BOSSES_URL", "https://sam-t-anderson.github.io/Aion-2-tools/static/field-bosses.json").strip()
 # Official news (notices and updates) read from the log server's feed, posted by /setup news. Empty turns it off.
 NEWS_URL = os.getenv("NEWS_URL", "https://island-1.tailbe3340.ts.net/api/v1/news").strip()
 NEWS_MINUTES = max(5, _int("NEWS_MINUTES", 15))

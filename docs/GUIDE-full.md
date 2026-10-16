@@ -200,6 +200,7 @@ This section is for whoever hosts the bot. The bot runs in Docker on the home se
 | `BOSS_KILLS_URL` | the log server | Feed of field boss kills from uploaded combat logs. Empty turns it off |
 | `BOSS_KILLS_MINUTES` | 1 | How often that feed is read |
 | `BOSS_KILLS_MIN_REPORTS` | 1 | How many different uploaders must record a kill before it starts a timer |
+| `FIELD_BOSSES_URL` | the Pages site | The published copy of the shared field-boss reference, read once a day so new field bosses appear without a redeploy. Empty keeps the bundled file |
 | `NEWS_URL` | the log server | Feed of the official news (notices and updates) that `/setup news` posts. Empty turns it off |
 | `NEWS_MINUTES` | 15 | How often that feed is read (minimum 5) |
 | `NEWS_MAX_PER_CYCLE` | 5 | Most articles posted per server per read; the rest follow next time |

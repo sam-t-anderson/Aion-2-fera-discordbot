@@ -42,6 +42,7 @@ Links (only you see the reply)
 
 Admin (Manage Server)
 - `/setup announcements [channel]`, `/setup region`, `/setup server`, `/setup show`: optional notices channel, game region, game server and current settings.
+- Field bosses come from the shared `assets/field-bosses.json`; once a day the bot also reads the copy published on the Aion 2 tools Pages site (`FIELD_BOSSES_URL`), validates it and swaps it in, so a field boss added upstream appears in `/timers` without a redeploy (`/setup show` says the source and age; a bad or unreachable copy changes nothing).
 - `/setup news [region] [stop]`: posts the official AION 2 news (notices and updates, as on the Aion 2 tools News page) in the channel it was run in, each article as a short lead line plus its official link so Discord shows the link preview. Read from the log server's news feed (`NEWS_URL`) every `NEWS_MINUTES` (15). The region follows `/setup region` (the Global English boards) unless Korea, Taiwan or all regions is chosen; the first run posts only the newest article, later runs at most `NEWS_MAX_PER_CYCLE` (5), and nothing is posted twice. `stop:True` turns it off.
 - With a game server picked, field boss kills found in combat logs uploaded to the log server (`BOSS_KILLS_URL`) start respawn timers by themselves.
 - `/eventlist add|remove|show`: raid and world boss lists.

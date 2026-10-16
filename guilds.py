@@ -11,6 +11,7 @@ from discord.ext import commands
 
 import config
 import db
+import fieldbosses
 import gamedata
 import gameservers
 import news
@@ -212,6 +213,7 @@ class ServerSetup(commands.Cog):
             f"Timer board: {f'https://discord.com/channels/{gid}/{board_c}/{board_m}' if board_c and board_m else 'none (`/timer-setup` posts one)'}",
             "News: " + (f"<#{db.get_setting(gid, 'news_channel')}> — {news.describe(gid)}" if db.get_setting(gid, "news_channel")
                         else "off (run `/setup news` in a channel to post the official news there)"),
+            f"Field bosses: {fieldbosses.describe()}",
         ]
         await interaction.response.send_message("\n".join(lines), ephemeral=True)
 

@@ -35,7 +35,19 @@ ROLES = {
     "healer": ("Healer", "\U0001f49a"),
     "dps": ("DPS", "⚔️"),
 }
+# The eight AION 2 classes, in the game's own order (the sign-up panel shows them in two rows of four).
+CLASSES = {
+    "gladiator": "Gladiator",
+    "templar": "Templar",
+    "assassin": "Assassin",
+    "ranger": "Ranger",
+    "sorcerer": "Sorcerer",
+    "spiritmaster": "Spiritmaster",
+    "cleric": "Cleric",
+    "chanter": "Chanter",
+}
 COLOR_OPEN, COLOR_CLOSED = 0xA9741A, 0x6B7280
+EMBED_BUDGET = 5900   # Discord rejects an embed over 6000 characters in total
 
 
 # ---------------------------------------------------------------- data access
@@ -55,7 +67,31 @@ def get_signup(event_id: int, user_id: int):
     ).fetchone()
 
 
+def remembered_class(guild_id: int, user_id: int) -> Optional[str]:
+    """The class this member last picked on an event in this server, if any."""
+    row = db.conn().execute(
+        "SELECT char_class FROM member_classes WHERE guild_id=? AND user_id=?", (guild_id, user_id)
+    ).fetchone()
+    return row["char_class"] if row and row["char_class"] in CLASSES else None
+
+
+def remember_class(guild_id: int, user_id: int, char_class: Optional[str]) -> None:
+    """Keep (or, with None, forget) a member's class for their next signup in this server."""
+    c = db.conn()
+    if char_class:
+        c.execute(
+            """INSERT INTO member_classes (guild_id, user_id, char_class, set_at) VALUES (?,?,?,?)
+               ON CONFLICT(guild_id, user_id) DO UPDATE SET char_class=excluded.char_class, set_at=excluded.set_at""",
+            (guild_id, user_id, char_class, int(time.time())),
+        )
+    else:
+        c.execute("DELETE FROM member_classes WHERE guild_id=? AND user_id=?", (guild_id, user_id))
+    c.commit()
+
+
 def upsert_signup(event_id: int, user_id: int, status: str, role: str) -> None:
+    """Sign up or change status and role. A new signup starts with the class the member last picked
+    in this server."""
     existing = get_signup(event_id, user_id)
     c = db.conn()
     if existing:
@@ -65,9 +101,11 @@ def upsert_signup(event_id: int, user_id: int, status: str, role: str) -> None:
             (status, role, joined, event_id, user_id),
         )
     else:
+        ev = get_event(event_id)
+        char_class = remembered_class(ev["guild_id"], user_id) if ev else None
         c.execute(
-            "INSERT INTO signups (event_id, user_id, status, role, joined_at) VALUES (?,?,?,?,?)",
-            (event_id, user_id, status, role, time.time()),
+            "INSERT INTO signups (event_id, user_id, status, role, char_class, joined_at) VALUES (?,?,?,?,?,?)",
+            (event_id, user_id, status, role, char_class, time.time()),
         )
     c.commit()
 
@@ -131,8 +169,24 @@ def event_url(ev) -> Optional[str]:
     return f"https://discord.com/channels/{ev['guild_id']}/{ev['channel_id']}/{ev['message_id']}"
 
 
+def class_label(s) -> Optional[str]:
+    return CLASSES.get(s["char_class"]) if "char_class" in s.keys() and s["char_class"] else None
+
+
+def class_summary(players) -> str:
+    """'Templar 1 · Cleric 2 · Sorcerer 3' for the players who picked a class, in the game's class order."""
+    counts = {}
+    for s in players:
+        label = class_label(s)
+        if label:
+            counts[label] = counts.get(label, 0) + 1
+    return " · ".join(f"{label} {counts[label]}" for label in CLASSES.values() if label in counts)
+
+
 def _player_line(s, with_party: bool = True) -> str:
     parts = [f"<@{s['user_id']}>"]
+    if class_label(s):
+        parts.append(class_label(s))
     if s["power"]:
         parts.append(f"{s['power']:,} CP")
     if s["gear_score"]:
@@ -153,6 +207,9 @@ def render_event(ev, signups) -> discord.Embed:
         f"**Confirmed:** {len(confirmed)}/{ev['capacity']}"
         + (f" · {len(waitlist)} on waitlist" if waitlist else ""),
     ]
+    classes = class_summary(confirmed)
+    if classes:
+        lines.append(f"**Classes:** {classes}")
     if ev["description"]:
         lines.append("")
         lines.append(util.cut(ev["description"], 500))
@@ -177,20 +234,30 @@ def render_event(ev, signups) -> discord.Embed:
             value=util.cut("\n".join(f"{ROLES[s['role']][1]} {_player_line(s)}" for s in waitlist)),
             inline=False,
         )
+    embed.set_footer(
+        text=f"Event #{ev['id']} · Use Sign up / edit to pick a role and class. "
+        f"Alert me sends you a DM {ev['alert_minutes']} min before."
+    )
     parties: dict[int, list] = {}
     for s in confirmed:
         if s["party"]:
             parties.setdefault(s["party"], []).append(s)
+    party_fields = []
     for num in sorted(parties)[:10]:
         members = sorted(parties[num], key=lambda s: list(ROLES).index(s["role"]))
-        embed.add_field(
-            name=f"Party {num} ({len(members)}/{ev['party_size']})",
-            value=util.cut("\n".join(f"{ROLES[s['role']][1]} {_player_line(s, False)}" for s in members)),
-            inline=True,
-        )
-    embed.set_footer(
-        text=f"Event #{ev['id']} · Use Sign up to pick a role. Alert me sends you a DM {ev['alert_minutes']} min before."
-    )
+        full = util.cut("\n".join(f"{ROLES[s['role']][1]} {_player_line(s, False)}" for s in members))
+        short = util.cut("\n".join(
+            f"{ROLES[s['role']][1]} <@{s['user_id']}>" + (f" · {class_label(s)}" if class_label(s) else "")
+            for s in members))
+        party_fields.append((f"Party {num} ({len(members)}/{ev['party_size']})", full, short))
+    # A big sorted event can outgrow Discord's 6000-character embed limit (the card then stops updating):
+    # the party lists drop combat power and gear score first (they are on the role lists above), and as a
+    # last resort the lowest fields go.
+    compact = len(embed) + sum(len(n) + len(v) for n, v, _ in party_fields) > EMBED_BUDGET
+    for name, full, short in party_fields:
+        embed.add_field(name=name, value=short if compact else full, inline=True)
+    while len(embed) > EMBED_BUDGET and len(embed.fields) > len(ROLES):
+        embed.remove_field(-1)
     return embed
 
 
@@ -204,8 +271,16 @@ def event_view(event_id: int) -> discord.ui.View:
     return view
 
 
+def panel_class(ev, user_id: int, su=None) -> Optional[str]:
+    """The class the panel shows as picked: the signup's own, or before signing up the remembered one."""
+    if su:
+        return su["char_class"] if su["char_class"] in CLASSES else None
+    return remembered_class(ev["guild_id"], user_id)
+
+
 def panel_parts(ev, user_id: int):
     su = get_signup(ev["id"], user_id)
+    picked = panel_class(ev, user_id, su)
     embed = discord.Embed(title=f"Your signup — {event_title(ev)}", color=COLOR_OPEN)
     if su:
         label, icon = ROLES[su["role"]]
@@ -215,14 +290,20 @@ def panel_parts(ev, user_id: int):
         alert = f"on ({ev['alert_minutes']} min before)" if su["alert"] else "off"
         embed.description = (
             f"{state} as {icon} **{label}**\n"
+            f"Class: **{CLASSES[picked] if picked else 'not set (pick one below)'}**\n"
             f"Combat power: **{cp}**\n"
             f"Gear score: **{gs}**\n"
             f"DM alert: **{alert}**\n"
             + (f"Sub-party: **{su['party']}**\n" if su["party"] else "")
         )
     else:
-        embed.description = "You're not signed up yet. Pick a role below."
-    embed.set_footer(text="Alerts arrive as a direct message, so allow DMs from server members.")
+        embed.description = "You're not signed up yet. Pick Yes or Maybe with a role, and your class."
+        if picked:
+            embed.description += f"\nClass: **{CLASSES[picked]}**. Your signup will start with it."
+    embed.set_footer(
+        text="Your class is remembered for your next signup in this server. "
+        "Alerts arrive as a direct message, so allow DMs from server members."
+    )
 
     view = discord.ui.View(timeout=None)
     for row, status in enumerate(("yes", "maybe")):
@@ -237,17 +318,20 @@ def panel_parts(ev, user_id: int):
             )
             text = f"{'Yes' if status == 'yes' else 'Maybe'}: {label}"
             view.add_item(EvSet(ev["id"], status, role, text, style, row))
-    view.add_item(EvBtn("cp", ev["id"], "Set combat power / gear score", discord.ButtonStyle.secondary, row=2))
+    for index, (key, label) in enumerate(CLASSES.items()):
+        style = discord.ButtonStyle.success if key == picked else discord.ButtonStyle.secondary
+        view.add_item(EvClass(ev["id"], key, label, style, row=2 + index // 4))
+    view.add_item(EvBtn("cp", ev["id"], "Set combat power / gear score", discord.ButtonStyle.secondary, row=4))
     view.add_item(
         EvBtn(
             "alert",
             ev["id"],
             "Alert: on" if su and su["alert"] else "Alert me",
             discord.ButtonStyle.success if su and su["alert"] else discord.ButtonStyle.secondary,
-            row=2,
+            row=4,
         )
     )
-    view.add_item(EvBtn("leave", ev["id"], "Leave event", discord.ButtonStyle.danger, row=2))
+    view.add_item(EvBtn("leave", ev["id"], "Leave event", discord.ButtonStyle.danger, row=4))
     return embed, view
 
 
@@ -362,6 +446,9 @@ async def h_manage(interaction, event_id):
         title=f"Organizer tools — {event_title(ev)}",
         description=(
             f"{len(confirmed)} confirmed, {len(waitlist)} waitlisted, {len(maybe)} maybe.\n"
+            f"Starts {util.ts(ev['starts_at'], 'F')} ({util.ts(ev['starts_at'], 'R')}).\n"
+            "**Edit time / details** changes the start time, name, size or notes; a new time is "
+            "announced in the channel and everyone's DM alert follows it.\n"
             f"Auto-sort splits confirmed players into parties of {ev['party_size']}, "
             "balancing tanks, healers and combat power.\n"
             "To move one person, use `/event assign`."
@@ -369,6 +456,7 @@ async def h_manage(interaction, event_id):
         color=COLOR_OPEN,
     )
     view = discord.ui.View(timeout=None)
+    view.add_item(EvBtn("edit", event_id, "Edit time / details", discord.ButtonStyle.primary))
     view.add_item(EvBtn("auto", event_id, "Auto-sort into parties", discord.ButtonStyle.primary))
     view.add_item(EvBtn("clr", event_id, "Clear parties", discord.ButtonStyle.secondary))
     view.add_item(EvBtn("cancel", event_id, "Cancel event", discord.ButtonStyle.danger))
@@ -416,6 +504,14 @@ async def h_clr(interaction, event_id):
     await refresh_message(interaction.client, event_id)
 
 
+async def h_edit(interaction, event_id):
+    ev = _open_event(interaction, event_id)
+    if not ev or not can_manage(interaction, ev):
+        await interaction.response.send_message("Only the organizer or a server manager can do that.", ephemeral=True)
+        return
+    await interaction.response.send_modal(EditModal(ev, util.get_tz(interaction.user.id)))
+
+
 async def h_cancel(interaction, event_id):
     ev = _open_event(interaction, event_id)
     if not ev or not can_manage(interaction, ev):
@@ -449,12 +545,13 @@ HANDLERS = {
     "clr": h_clr,
     "cancel": h_cancel,
     "cancelok": h_cancelok,
+    "edit": h_edit,
 }
 
 
 class EvBtn(
     discord.ui.DynamicItem[discord.ui.Button],
-    template=r"ev:(?P<act>open|leave|alert|cp|manage|auto|clr|cancel|cancelok):(?P<id>\d+)",
+    template=r"ev:(?P<act>open|leave|alert|cp|manage|auto|clr|cancel|cancelok|edit):(?P<id>\d+)",
 ):
     def __init__(self, act, event_id, label="Event", style=discord.ButtonStyle.secondary, row=None):
         self.act, self.event_id = act, int(event_id)
@@ -494,6 +591,43 @@ class EvSet(
         upsert_signup(self.event_id, interaction.user.id, self.status, self.role)
         await _send_or_edit_panel(interaction, ev)
         await refresh_message(interaction.client, self.event_id)
+
+
+class EvClass(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"ev:cls:(?P<id>\d+):(?P<cls>" + "|".join(CLASSES) + ")",
+):
+    """A class button on the sign-up panel. It sets the signup's class and remembers it for the member's
+    next signup in this server; pressing the picked class again clears it. Before signing up it only
+    remembers it, so the role button pressed next signs up with that class."""
+
+    def __init__(self, event_id, char_class, label="Class", style=discord.ButtonStyle.secondary, row=None):
+        self.event_id, self.char_class = int(event_id), char_class
+        super().__init__(
+            discord.ui.Button(label=label, style=style, custom_id=f"ev:cls:{event_id}:{char_class}", row=row)
+        )
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match, /):
+        return cls(match["id"], match["cls"])
+
+    async def callback(self, interaction: discord.Interaction):
+        ev = _open_event(interaction, self.event_id)
+        if not ev:
+            await interaction.response.send_message("This event is closed.", ephemeral=True)
+            return
+        su = get_signup(self.event_id, interaction.user.id)
+        chosen = None if panel_class(ev, interaction.user.id, su) == self.char_class else self.char_class
+        remember_class(ev["guild_id"], interaction.user.id, chosen)
+        if su:
+            db.conn().execute(
+                "UPDATE signups SET char_class=? WHERE event_id=? AND user_id=?",
+                (chosen, self.event_id, interaction.user.id),
+            )
+            db.conn().commit()
+        await _send_or_edit_panel(interaction, ev)
+        if su:
+            await refresh_message(interaction.client, self.event_id)
 
 
 def parse_stat(text: str, limit: int) -> Optional[int]:
@@ -549,6 +683,128 @@ class CPModal(discord.ui.Modal, title="Combat power and gear score"):
         if ev:
             await _send_or_edit_panel(interaction, ev)
             await refresh_message(interaction.client, self.event_id)
+
+
+def apply_edit(ev, starts_at: Optional[int] = None, capacity: Optional[int] = None,
+               name: Optional[str] = None, description: Optional[str] = None) -> list[str]:
+    """Change an event; returns what changed ('time', 'size', 'name', 'notes'). A new time re-arms every
+    signup's DM alert for it. Values equal to the current ones are not counted as changes."""
+    c = db.conn()
+    changed = []
+    if starts_at is not None and starts_at != ev["starts_at"]:
+        c.execute("UPDATE events SET starts_at=? WHERE id=?", (starts_at, ev["id"]))
+        c.execute("UPDATE signups SET alerted=0 WHERE event_id=?", (ev["id"],))
+        changed.append("time")
+    if capacity is not None and capacity != ev["capacity"]:
+        c.execute("UPDATE events SET capacity=? WHERE id=?", (capacity, ev["id"]))
+        changed.append("size")
+    if name is not None and name[:80] != ev["name"]:
+        c.execute("UPDATE events SET name=? WHERE id=?", (name[:80], ev["id"]))
+        changed.append("name")
+    if description is not None and description[:500] != (ev["description"] or ""):
+        c.execute("UPDATE events SET description=? WHERE id=?", (description[:500], ev["id"]))
+        changed.append("notes")
+    c.commit()
+    return changed
+
+
+def time_notice(ev, old_starts: int, here_channel_id: Optional[int] = None) -> str:
+    """The channel message announcing a new start time (ev is the event as it is now)."""
+    text = (
+        f"\u23f0 **{event_title(ev)}** has a new start time: {util.ts(ev['starts_at'], 'F')} "
+        f"({util.ts(ev['starts_at'], 'R')}). It was {util.ts(old_starts, 'F')}."
+    )
+    url = event_url(ev)
+    if url and here_channel_id != ev["channel_id"]:
+        text += f"\n{url}"
+    return text
+
+
+def _changed_text(changed: list[str]) -> str:
+    return "Event updated: " + ", ".join(changed) + "." if changed else "Nothing changed."
+
+
+class EditModal(discord.ui.Modal, title="Edit event"):
+    """The organizer's edit form, opened from the Organizer panel: start time, name, size and notes,
+    filled in with the current values. The time is shown and read in the organizer's own timezone."""
+
+    def __init__(self, ev, tz):
+        super().__init__(timeout=900)
+        self.event_id, self.tz = ev["id"], tz
+        self.when_default = datetime.fromtimestamp(ev["starts_at"], tz).strftime("%Y-%m-%d %H:%M")
+        tz_name = getattr(tz, "key", None) or str(tz)
+        self.when_input = discord.ui.TextInput(
+            label=util.cut(f"Start time ({tz_name})", 45),
+            default=self.when_default,
+            max_length=40,
+            placeholder="tomorrow 8pm, 10/26 7:30pm or in 2h",
+        )
+        self.name_input = discord.ui.TextInput(
+            label="Name", default=ev["name"], max_length=80, required=ev["kind"] in NAMED_KINDS
+        )
+        self.size_input = discord.ui.TextInput(
+            label="Total players (2 to 60)", default=str(ev["capacity"]), max_length=2
+        )
+        self.notes_input = discord.ui.TextInput(
+            label="Notes (leave empty for none)",
+            style=discord.TextStyle.paragraph,
+            default=ev["description"] or None,
+            required=False,
+            max_length=500,
+        )
+        for item in (self.when_input, self.name_input, self.size_input, self.notes_input):
+            self.add_item(item)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        ev = get_event(self.event_id)
+        if not ev or ev["status"] != "open":
+            await interaction.response.send_message("This event is closed.", ephemeral=True)
+            return
+        if not can_manage(interaction, ev):
+            await interaction.response.send_message("Only the organizer or a server manager can do that.", ephemeral=True)
+            return
+        problems = []
+        starts = None
+        when_text = (self.when_input.value or "").strip()
+        if when_text and when_text != self.when_default:   # an untouched time is kept as it is
+            try:
+                starts = int(util.parse_when(when_text, self.tz).timestamp())
+            except ValueError as e:
+                problems.append(str(e))
+        try:
+            size = int((self.size_input.value or "").strip())
+            if not 2 <= size <= 60:
+                raise ValueError
+        except ValueError:
+            size = None
+            problems.append("Total players must be a number from 2 to 60.")
+        name = " ".join((self.name_input.value or "").split())
+        if not name:
+            if ev["kind"] in NAMED_KINDS:
+                problems.append("This event needs a name.")
+            name = KINDS.get(ev["kind"], KINDS["custom"])["label"]
+        if name == " ".join(ev["name"].split()):
+            name = None                                   # untouched
+        notes = self.notes_input.value or ""
+        if not notes.strip():
+            notes = ""
+        if notes.strip() == (ev["description"] or "").strip():
+            notes = None                                  # untouched
+        if problems:
+            await interaction.response.send_message(
+                "Nothing was changed.\n" + "\n".join(f"- {p}" for p in problems), ephemeral=True
+            )
+            return
+        old_starts = ev["starts_at"]
+        changed = apply_edit(ev, starts_at=starts, capacity=size, name=name, description=notes)
+        await interaction.response.send_message(_changed_text(changed), ephemeral=True)
+        if "time" in changed:
+            await interaction.followup.send(
+                time_notice(get_event(ev["id"]), old_starts, interaction.channel_id),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        if changed:
+            await refresh_message(interaction.client, ev["id"])
 
 
 # ---------------------------------------------------------------- slash commands
@@ -782,24 +1038,24 @@ class Events(commands.GroupCog, group_name="event", group_description="Plan grou
         if not can_manage(interaction, ev):
             await interaction.response.send_message("Only the organizer or a server manager can do that.", ephemeral=True)
             return
-        c = db.conn()
+        starts = None
         if when:
             try:
-                starts = util.parse_when(when, util.get_tz(interaction.user.id))
+                starts = int(util.parse_when(when, util.get_tz(interaction.user.id)).timestamp())
             except ValueError as e:
                 await interaction.response.send_message(str(e), ephemeral=True)
                 return
-            c.execute("UPDATE events SET starts_at=? WHERE id=?", (int(starts.timestamp()), ev["id"]))
-            c.execute("UPDATE signups SET alerted=0 WHERE event_id=?", (ev["id"],))
-        if size:
-            c.execute("UPDATE events SET capacity=? WHERE id=?", (size, ev["id"]))
-        if name:
-            c.execute("UPDATE events SET name=? WHERE id=?", (name[:80], ev["id"]))
-        if description is not None:
-            c.execute("UPDATE events SET description=? WHERE id=?", (description[:500], ev["id"]))
-        c.commit()
-        await interaction.response.send_message("Event updated.", ephemeral=True)
-        await refresh_message(self.bot, ev["id"])
+        old_starts = ev["starts_at"]
+        changed = apply_edit(ev, starts_at=starts, capacity=size, name=(name or "").strip() or None,
+                             description=description)
+        await interaction.response.send_message(_changed_text(changed), ephemeral=True)
+        if "time" in changed:
+            await interaction.followup.send(
+                time_notice(get_event(ev["id"]), old_starts, interaction.channel_id),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        if changed:
+            await refresh_message(self.bot, ev["id"])
 
     # ---- /event assign
     @app_commands.command(name="assign", description="Put a signed-up player into a sub-party")
@@ -1013,7 +1269,7 @@ class BossAdmin(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    bot.add_dynamic_items(EvBtn, EvSet)
+    bot.add_dynamic_items(EvBtn, EvSet, EvClass)
     await bot.add_cog(Events(bot))
     await bot.add_cog(TimezoneCog())
     await bot.add_cog(BossAdmin())

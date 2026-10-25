@@ -115,7 +115,7 @@ async def main():
     assert "Party 1" in str(events.render_event(events.get_event(1), events.get_signups(1)).to_dict())
     # switching maybe -> yes moves to the back of the queue
     events.upsert_signup(1, 5, "yes", "dps"); assert events.get_signup(1,5)["status"] == "yes"
-    embed, view = events.panel_parts(ev, 1); assert len(view.children) == 9
+    embed, view = events.panel_parts(ev, 1); assert len(view.children) == 17   # 6 role, 8 class, 3 tool buttons
     assert len(events.event_view(1).children) == 4
 
     # every cog loads and every command serializes to a valid Discord payload

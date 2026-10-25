@@ -75,11 +75,20 @@ CREATE TABLE IF NOT EXISTS signups (
     role TEXT NOT NULL,
     power INTEGER,
     gear_score INTEGER,
+    char_class TEXT,
     party INTEGER,
     alert INTEGER NOT NULL DEFAULT 0,
     alerted INTEGER NOT NULL DEFAULT 0,
     joined_at REAL NOT NULL,
     PRIMARY KEY (event_id, user_id));
+
+-- The class each member last picked on an event in this server, so their next signup starts with it.
+CREATE TABLE IF NOT EXISTS member_classes (
+    guild_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    char_class TEXT NOT NULL,
+    set_at INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, user_id));
 
 CREATE TABLE IF NOT EXISTS guild_links (
     guild_id INTEGER NOT NULL,
@@ -255,6 +264,8 @@ def init(path: str | None = None) -> None:
             _conn.execute(f"ALTER TABLE guild_settings ADD COLUMN {column}")
     if not any(r["name"] == "gear_score" for r in _conn.execute("PRAGMA table_info(signups)").fetchall()):
         _conn.execute("ALTER TABLE signups ADD COLUMN gear_score INTEGER")
+    if not any(r["name"] == "char_class" for r in _conn.execute("PRAGMA table_info(signups)").fetchall()):
+        _conn.execute("ALTER TABLE signups ADD COLUMN char_class TEXT")
     _conn.execute("DROP TABLE IF EXISTS timer_events")  # start times are worked out per server region now
     _conn.commit()
     _migrate_single_server()
@@ -407,7 +418,8 @@ def forget_guild(guild_id: int) -> None:
     """The bot was removed from a server: drop that server's settings and lists."""
     c = conn()
     for table in ("guild_settings", "guild_bosses", "guild_links", "guild_timer_manual", "guild_timer_subs", "news_posted",
-                  "dkp_config", "dkp_ledger", "dkp_rewards", "dkp_batches", "dkp_boards", "loot_items", "loot_reservations"):
+                  "dkp_config", "dkp_ledger", "dkp_rewards", "dkp_batches", "dkp_boards", "loot_items", "loot_reservations",
+                  "member_classes"):
         c.execute(f"DELETE FROM {table} WHERE guild_id=?", (guild_id,))
     c.commit()
 

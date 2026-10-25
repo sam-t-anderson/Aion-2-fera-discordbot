@@ -20,7 +20,7 @@ Checklists
 
 Event planner
 - `/event create`: raid, world boss, arena, open world faction PvP, cross-territory rift or custom event.
-- Buttons on the event: Sign up / edit (Yes or Maybe as Tank, Healer or DPS, optional combat power and gear score), Leave, Alert me (private DM), Organizer (auto-sort into sub-parties, clear parties, cancel).
+- Buttons on the event: Sign up / edit (Yes or Maybe as Tank, Healer or DPS, class buttons for the eight classes, remembered per server, optional combat power and gear score), Leave, Alert me (private DM), Organizer (edit time / details, auto-sort into sub-parties, clear parties, cancel).
 - `/event list`, `/event edit`, `/event cancel`, `/event assign`, `/event autosort`, `/event alert`.
 - `/timezone set|show`: the timezone used for the times you type.
 

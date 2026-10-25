@@ -44,15 +44,15 @@ Raid, world boss and custom events need a `name`. For raids and world bosses, pi
 
 **On the event card**
 
-- **Sign up / edit**: choose Yes or Maybe, pick Tank, Healer or DPS, and optionally enter your combat power and gear score with **Set combat power / gear score**. Both show next to your name on the event card. People past the size limit go on a waitlist.
+- **Sign up / edit**: choose Yes or Maybe, pick Tank, Healer or DPS, and pick your class with its button (Gladiator, Templar, Assassin, Ranger, Sorcerer, Spiritmaster, Cleric or Chanter). Optionally enter your combat power and gear score with **Set combat power / gear score**. Your class, combat power and gear score show next to your name on the event card, and the card counts the confirmed players' classes. The bot remembers your class for your next signup in the same server; press another class to change it, or your class again to clear it. People past the size limit go on a waitlist.
 - **Leave**: remove yourself.
 - **Alert me**: a private DM before the event starts.
-- **Organizer**: auto-sort into sub-parties, clear parties or cancel. Organizer controls are for whoever created the event.
+- **Organizer**: edit the time or details, auto-sort into sub-parties, clear parties or cancel. **Edit time / details** opens a form with the start time (in your timezone), name, size and notes filled in; change what you need and submit. A new start time is announced in the channel, and everyone's DM alert follows it. Organizer controls are for whoever created the event and server managers.
 
 **Other commands**
 
 - `/event list`: upcoming events in the server.
-- `/event edit`: change time, size, name or notes.
+- `/event edit`: change time, size, name or notes. A new time is announced in the channel, as from the Organizer button.
 - `/event cancel`: cancel an event you organize.
 - `/event assign`: put a player in a sub-party (0 removes them).
 - `/event autosort`: split confirmed players into balanced parties. Tanks and healers are spread out first, then DPS by party size and combat power.

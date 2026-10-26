@@ -3,7 +3,7 @@ os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
-import db, dkp
+import db, dkp, dkp_board
 G=1
 class Msg:
     def __init__(s,ch,i): s.ch,s.id=ch,i
@@ -19,7 +19,7 @@ class Ch:
 async def main():
     db.init(); c=db.conn(); ch=Ch()
     bot=commands.Bot(command_prefix="!",intents=discord.Intents.default())
-    cog=dkp.DkpBoard(bot); 
+    cog=dkp_board.DkpBoard(bot); 
     async def _c(cid): return ch
     cog._channel=_c
     for i in range(900): dkp.add_entry(G,1000+i,i+1,"award","x",9)

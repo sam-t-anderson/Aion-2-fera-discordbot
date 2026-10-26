@@ -3,7 +3,7 @@ import asyncio, json, os, sys, tempfile, time
 from unittest.mock import MagicMock, AsyncMock
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import config, db, timers, guilds, gameservers
+import config, db, guilds, gameservers, timer_board, timer_commands
 
 NAE = {"serverList": [{"raceId": 1, "serverId": 1101, "serverName": "Siel", "serverShortName": "SIE"},
                       {"raceId": 2, "serverId": 2101, "serverName": "Israphel", "serverShortName": "ISR"},
@@ -99,7 +99,7 @@ async def main():
     assert timer(A, "Silent Dartan (Altgard)")["next_at"] == now - 600 + 6 * 3600        # Asmodian server: the Altgard one
     assert sorted(r["name"] for r in db.conn().execute("SELECT name FROM guild_timer_manual WHERE guild_id=?", (A,))) ==         ["Silent Dartan (Altgard)", "Soul Ruler Kashapa"]
     assert not db.conn().execute("SELECT 1 FROM guild_timer_manual WHERE guild_id IN (?,?)", (B, C)).fetchall()
-    embed = str(timers.build_embed(A).to_dict())
+    embed = str(timer_board.build_embed(A).to_dict())
     assert "Soul Ruler Kashapa" in embed and "from combat logs" in embed and "<@0>" not in embed
     assert await cog.fetch_kills() == 0                                                  # nothing new: no rewrite
 
@@ -112,8 +112,8 @@ async def main():
     assert await cog.fetch_kills() == 1 and timer(A, "Vulcanarch Grymnir")["next_at"] == now - 60 + 7200
 
     # someone here reporting the kill afterwards wins over the feed; an older report does not
-    tc = timers.Timers.__new__(timers.Timers)
-    it = interaction(A); await timers.Timers.killed.callback(tc, it, name="Soul Ruler Kashapa", respawn="4h")
+    tc = timer_commands.Timers.__new__(timer_commands.Timers)
+    it = interaction(A); await timer_commands.Timers.killed.callback(tc, it, name="Soul Ruler Kashapa", respawn="4h")
     mine = timer(A, "Soul Ruler Kashapa")["next_at"]
     cog.session.kills["2102"] = [{**kashapa, "killed_at": now - 900, "respawn_seconds": None}]
     assert await cog.fetch_kills() == 0 and timer(A, "Soul Ruler Kashapa")["next_at"] == mine
@@ -122,7 +122,7 @@ async def main():
     row = timer(A, "Soul Ruler Kashapa")
     assert row["set_by"] == 0 and row["next_at"] == now + 120 + 4 * 3600 and row["respawn_min"] == 240   # the taught 4h is the shortest
     # anyone may clear a timer that came from the feed
-    it = interaction(A, admin=False); await timers.Timers.clear.callback(tc, it, name="Soul Ruler Kashapa")
+    it = interaction(A, admin=False); await timer_commands.Timers.clear.callback(tc, it, name="Soul Ruler Kashapa")
     assert "Cleared" in said(it)
 
     # a stricter server owner can ask for two uploaders

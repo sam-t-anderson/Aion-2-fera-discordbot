@@ -53,10 +53,11 @@ jobs:
           sudo chown -R root:root ci-data
           docker run --rm -v "$PWD/ci-data:/data" fera-ci python -c '
           import json, os
-          import config, db, gamedata, privileges
+          import config, db, gamedata, privileges, translations
           assert os.geteuid() == 0, "the image should start as root"
           with open("assets/field-bosses.json", encoding="utf-8") as f:
               assert gamedata.FIELD_BOSSES == gamedata.parse(json.load(f))[0], "field bosses not loaded from assets"
+          assert all(len(t) > 150 for t in translations.Translator().tables.values()), "translations missing"
           assert privileges.drop(config.BOT_USER, os.path.dirname(config.DB_PATH)), "privilege drop failed"
           assert (os.geteuid(), os.getegid(), os.getgroups()) == (1000, 1000, []), "still privileged"
           db.init()

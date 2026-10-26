@@ -1,12 +1,16 @@
 """What a player sees when a command, button or form fails, and what the log records."""
 import asyncio
+import importlib
 import logging
+import pathlib
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
 from discord import app_commands
 
 import errors
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def interaction(done=False):
@@ -110,13 +114,14 @@ def test_a_button_that_works_is_untouched():
 
 
 def test_every_button_and_form_is_guarded():
-    import checklist
-    import dkp
-    import events
     handlers = []
-    for module in (checklist, dkp, events):
+    for path in sorted(ROOT.glob("*.py")):
+        if path.stem in ("bot", "inspect_timers"):          # the entry point, and a script that fetches on import
+            continue
+        module = importlib.import_module(path.stem)
         for value in vars(module).values():
-            if isinstance(value, type) and issubclass(value, (discord.ui.DynamicItem, discord.ui.Modal)):
+            if (isinstance(value, type) and value.__module__ == module.__name__
+                    and issubclass(value, (discord.ui.DynamicItem, discord.ui.Modal))):
                 for name in ("callback", "on_submit"):
                     if name in vars(value):
                         handlers.append((value.__name__, vars(value)[name]))

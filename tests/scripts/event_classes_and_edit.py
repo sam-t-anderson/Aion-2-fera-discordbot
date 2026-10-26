@@ -19,7 +19,7 @@ INSERT INTO signups (event_id, user_id, status, role, power, joined_at) VALUES (
 """)
 o.commit(); o.close()
 import discord
-import db, events
+import db, events, event_commands, event_panels
 
 ORG, G, OTHER_G = 99, 1, 2
 NOW = int(time.time())
@@ -47,13 +47,13 @@ def styles(view):
 
 async def press_class(event_id, uid, char_class, guild=G):
     it = interaction(uid, guild)
-    await events.EvClass(event_id, char_class).callback(it)
+    await event_panels.EvClass(event_id, char_class).callback(it)
     return it
 
 
 async def press_role(event_id, uid, status, role, guild=G):
     it = interaction(uid, guild)
-    await events.EvSet(event_id, status, role).callback(it)
+    await event_panels.EvSet(event_id, status, role).callback(it)
     return it
 
 
@@ -76,15 +76,15 @@ async def main():
     assert old["char_class"] is None and events._player_line(old) == "<@7> · 12,500 CP"   # survived the upgrade
 
     # the buttons' custom ids
-    pat = events.EvClass.__discord_ui_compiled_template__
+    pat = event_panels.EvClass.__discord_ui_compiled_template__
     assert pat.fullmatch("ev:cls:12:spiritmaster") and pat.fullmatch("ev:cls:1:gladiator")
     assert not pat.fullmatch("ev:cls:12:elementalist") and not pat.fullmatch("ev:set:1:yes:tank")
-    assert events.EvBtn.__discord_ui_compiled_template__.fullmatch("ev:edit:4")
-    assert events.EvBtn.__discord_ui_compiled_template__.fullmatch("ev:open:4")          # old cards keep working
+    assert event_panels.EvBtn.__discord_ui_compiled_template__.fullmatch("ev:edit:4")
+    assert event_panels.EvBtn.__discord_ui_compiled_template__.fullmatch("ev:open:4")          # old cards keep working
 
     # the panel: Yes/Maybe roles, then the eight classes in two rows of four, then the tools
     ev = events.get_event(ev1)
-    embed, view = events.panel_parts(ev, 7)
+    embed, view = event_panels.panel_parts(ev, 7)
     names = labels(view)
     assert names[6:14] == ["Gladiator", "Templar", "Assassin", "Ranger", "Sorcerer", "Spiritmaster", "Cleric", "Chanter"], names
     assert [c.item.row for c in view.children][6:14] == [2, 2, 2, 2, 3, 3, 3, 3]
@@ -174,19 +174,19 @@ async def main():
     c.execute("INSERT INTO signups (event_id,user_id,status,role,alert,alerted,joined_at) VALUES (?,7,'yes','dps',1,1,?)", (ev4, NOW)); c.commit()
 
     it = interaction(ORG)
-    await events.h_manage(it, ev4)
+    await event_panels.h_manage(it, ev4)
     org_view = it.response.send_message.await_args.kwargs["view"]
     assert labels(org_view)[0] == "Edit time / details" and "Starts <t:" in it.response.send_message.await_args.kwargs["embed"].description
 
     stranger = interaction(55)
-    await events.h_edit(stranger, ev4)
+    await event_panels.h_edit(stranger, ev4)
     stranger.response.send_modal.assert_not_awaited()
     assert "Only the organizer" in stranger.response.send_message.await_args.args[0]
 
     it = interaction(ORG)
-    await events.h_edit(it, ev4)
+    await event_panels.h_edit(it, ev4)
     modal = it.response.send_modal.await_args.args[0]
-    assert isinstance(modal, events.EditModal) and len(modal.title) <= 45
+    assert isinstance(modal, event_panels.EditModal) and len(modal.title) <= 45
     assert modal.when_input.default == start.astimezone(tz).strftime("%Y-%m-%d %H:%M")
     assert modal.when_input.label == "Start time (Europe/Berlin)" and all(len(i.label) <= 45 for i in modal.children)
     assert (modal.name_input.default, modal.size_input.default, modal.notes_input.default) == ("Eternal Ludra", "10", "Bring potions")
@@ -205,7 +205,7 @@ async def main():
     it = await submit(modal)
     assert it.response.send_message.await_args.args[0] == "Nothing changed."
     it.followup.send.assert_not_awaited()
-    it = await submit(events.EditModal(events.get_event(ev4), tz), name=" Eternal  Ludra", notes="Bring potions  ")
+    it = await submit(event_panels.EditModal(events.get_event(ev4), tz), name=" Eternal  Ludra", notes="Bring potions  ")
     assert it.response.send_message.await_args.args[0] == "Nothing changed."
 
     # a new time, typed in the organizer's timezone: saved, alerts re-armed, announced in the channel
@@ -221,13 +221,13 @@ async def main():
     it.client.get_partial_messageable.return_value.get_partial_message.return_value.edit.assert_awaited()
 
     # relative times work, and from another channel the notice links to the card
-    modal = events.EditModal(events.get_event(ev4), tz)
+    modal = event_panels.EditModal(events.get_event(ev4), tz)
     it = await submit(modal, when="in 3h", channel=777)
     assert abs(events.get_event(ev4)["starts_at"] - (time.time() + 3 * 3600)) < 120
     assert "discord.com/channels/1/2/3" in it.followup.send.await_args.args[0]
 
     # name, size and notes together; empty notes clear them
-    modal = events.EditModal(events.get_event(ev4), tz)
+    modal = event_panels.EditModal(events.get_event(ev4), tz)
     it = await submit(modal, name="  Immortal   Ludra ", size="12", notes="")
     ev = events.get_event(ev4)
     assert (ev["name"], ev["capacity"], ev["description"]) == ("Immortal Ludra", 12, "")
@@ -236,46 +236,46 @@ async def main():
 
     # bad input changes nothing and says why
     before = dict(events.get_event(ev4))
-    modal = events.EditModal(events.get_event(ev4), tz)
+    modal = event_panels.EditModal(events.get_event(ev4), tz)
     it = await submit(modal, when="sometime soon", size="99", name=" ")
     msg = it.response.send_message.await_args.args[0]
     assert msg.startswith("Nothing was changed.") and "Couldn't read that time" in msg
     assert "from 2 to 60" in msg and "needs a name" in msg
     assert dict(events.get_event(ev4)) == before
-    it = await submit(events.EditModal(events.get_event(ev4), tz), when=(datetime.now(tz) - timedelta(days=1)).strftime("%Y-%m-%d %H:%M"))
+    it = await submit(event_panels.EditModal(events.get_event(ev4), tz), when=(datetime.now(tz) - timedelta(days=1)).strftime("%Y-%m-%d %H:%M"))
     assert "already passed" in it.response.send_message.await_args.args[0] and dict(events.get_event(ev4)) == before
 
     # an event whose start has just passed can still be renamed: the untouched time is not read again
     c.execute("UPDATE events SET starts_at=? WHERE id=?", (NOW - 600, ev4)); c.commit()
-    it = await submit(events.EditModal(events.get_event(ev4), tz), name="Late Ludra")
+    it = await submit(event_panels.EditModal(events.get_event(ev4), tz), name="Late Ludra")
     assert it.response.send_message.await_args.args[0] == "Event updated: name." and events.get_event(ev4)["starts_at"] == NOW - 600
 
     # an arena's name may be emptied (it falls back to the event type, as at creation); a custom event's may not
     ev5 = new_event(kind="arena", name="Arena practice")
-    form = events.EditModal(events.get_event(ev5), tz)
+    form = event_panels.EditModal(events.get_event(ev5), tz)
     assert not form.name_input.required
     await submit(form, name="")
     assert events.get_event(ev5)["name"] == "Arena"
     ev6 = new_event(kind="custom", name="Guild night")
-    form = events.EditModal(events.get_event(ev6), tz)
+    form = event_panels.EditModal(events.get_event(ev6), tz)
     assert form.name_input.required
     it = await submit(form, name=" ")
     assert "needs a name" in it.response.send_message.await_args.args[0] and events.get_event(ev6)["name"] == "Guild night"
-    it = await submit(events.EditModal(events.get_event(ev5), tz), uid=55, size="20")
+    it = await submit(event_panels.EditModal(events.get_event(ev5), tz), uid=55, size="20")
     assert "Only the organizer" in it.response.send_message.await_args.args[0] and events.get_event(ev5)["capacity"] == 10
-    it = await submit(events.EditModal(events.get_event(ev5), tz), uid=56, size="20", manager=True)   # a server manager may
+    it = await submit(event_panels.EditModal(events.get_event(ev5), tz), uid=56, size="20", manager=True)   # a server manager may
     assert events.get_event(ev5)["capacity"] == 20
 
     # /event edit goes through the same change and announces a new time the same way
-    cog = events.Events(MagicMock())
+    cog = event_commands.Events(MagicMock())
     cog.bot.get_partial_messageable.return_value.get_partial_message.return_value.edit = AsyncMock()
     it = interaction(ORG)
-    await events.Events.edit.callback(cog, it, event=str(ev5), when="in 5h", size=None, name=None, description=None)
+    await event_commands.Events.edit.callback(cog, it, event=str(ev5), when="in 5h", size=None, name=None, description=None)
     assert abs(events.get_event(ev5)["starts_at"] - (time.time() + 5 * 3600)) < 120
     assert it.response.send_message.await_args.args[0] == "Event updated: time."
     assert "has a new start time" in it.followup.send.await_args.args[0]
     it = interaction(ORG)
-    await events.Events.edit.callback(cog, it, event=str(ev5), when=None, size=None, name="Raid night", description="Voice on")
+    await event_commands.Events.edit.callback(cog, it, event=str(ev5), when=None, size=None, name="Raid night", description="Voice on")
     ev = events.get_event(ev5)
     assert (ev["name"], ev["description"]) == ("Raid night", "Voice on") and it.followup.send.await_count == 0
     print("EVENT CLASSES AND EDIT OK")

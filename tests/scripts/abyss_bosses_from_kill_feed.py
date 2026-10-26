@@ -4,7 +4,7 @@ starts an AUTO timer that supersedes the static "no reliable community timer" re
 import asyncio, os, sys, tempfile, time
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import db, timers, gameservers
+import db, timers, gameservers, timer_board
 
 
 def _text(embed):
@@ -16,7 +16,7 @@ async def main():
     now = int(time.time())
 
     # Before any kill: Argo shows the static reference text, no live time.
-    before = _text(timers.build_embed(1))
+    before = _text(timer_board.build_embed(1))
     assert "Argo the Spirit King" in before and "no reliable community timer" in before.lower(), before
 
     # The feed reports Argo killed on this server with a server-measured respawn length.
@@ -29,7 +29,7 @@ async def main():
     assert gameservers.apply_kill(1, kill, race=None, now=now) is True
 
     # Now the board times Argo from the kill (superseding the reference text).
-    after = _text(timers.build_embed(1))
+    after = _text(timer_board.build_embed(1))
     assert "Argo the Spirit King" in after and "from combat logs" in after, after
     # The static "no reliable community timer" line for Argo is gone (the live row replaced it).
     argo_lines = [ln for ln in after.splitlines() if "Argo the Spirit King" in ln]
@@ -38,7 +38,7 @@ async def main():
     # A boss with no server-measured respawn yet cannot be predicted, so it is left alone.
     assert gameservers.apply_kill(1, {"boss": "Executor Argo", "killed_at": now - 60, "reports": 2, "server": "100"},
                                   race=None, now=now) is False
-    assert "Executor Argo" in _text(timers.build_embed(1))   # still shown as a reference row
+    assert "Executor Argo" in _text(timer_board.build_embed(1))   # still shown as a reference row
     print("OK")
 
 

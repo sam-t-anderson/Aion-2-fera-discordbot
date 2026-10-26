@@ -1,11 +1,11 @@
 import os, sys, tempfile, time
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import db, events, checklist
+import db, events, checklist, event_panels
 db.init(); c = db.conn(); now = int(time.time())
 # dynamic item templates
-for cls, good, bad in [(events.EvBtn, ["ev:open:12","ev:cancelok:3","ev:cp:9"], ["ev:set:1:yes:tank","ev:open:x"]),
-                       (events.EvSet, ["ev:set:12:maybe:healer"], ["ev:open:12"]),
+for cls, good, bad in [(event_panels.EvBtn, ["ev:open:12","ev:cancelok:3","ev:cp:9"], ["ev:set:1:yes:tank","ev:open:x"]),
+                       (event_panels.EvSet, ["ev:set:12:maybe:healer"], ["ev:open:12"]),
                        (checklist.TickButton, ["cl:tick:daily:duties"], ["cl:open:daily"])]:
     pat = cls.__discord_ui_compiled_template__
     assert all(pat.fullmatch(g) for g in good) and not any(pat.fullmatch(b) for b in bad), cls

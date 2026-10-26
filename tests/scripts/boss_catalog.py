@@ -3,7 +3,7 @@ import asyncio, json, os, sys, tempfile, time
 from unittest.mock import MagicMock, AsyncMock
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import db, timers, bosscatalog
+import db, timers, bosscatalog, timer_commands
 
 
 def rec(name, level, spawns, boss=True):
@@ -63,16 +63,16 @@ async def main():
     assert timers.canonical(1, "vulcanarch grymnir") == ("Vulcanarch Grymnir", "Field Bosses", None)
     assert timers.canonical(1, "ARGO, the spirit king") == ("Argo, the Spirit King", "World Bosses", None)
     assert timers.canonical(1, "Silent Dartan")[1] == "Field Bosses"
-    assert "Vulcanarch Grymnir" in [c.name for c in timers.Timers._name_choices(1, "grym")]
+    assert "Vulcanarch Grymnir" in [c.name for c in timer_commands.Timers._name_choices(1, "grym")]
     assert bosscatalog.describe("Vulcanarch Grymnir") == "Lv 80, Morheim: Lava Fields"
     assert bosscatalog.describe("Silent Dartan (Altgard)").startswith("Lv 48, Altgard: Basfelt Ruins")
     assert bosscatalog.describe("Nobody") == ""
 
     # reporting a kill: a boss from the feed needs its respawn once, then it is remembered
-    tc = timers.Timers.__new__(timers.Timers)
+    tc = timer_commands.Timers.__new__(timer_commands.Timers)
     async def killed(**kw):
         it = MagicMock(); it.guild_id = 1; it.user.id = 5; it.response.send_message = AsyncMock()
-        await timers.Timers.killed.callback(tc, it, **kw)
+        await timer_commands.Timers.killed.callback(tc, it, **kw)
         return it.response.send_message.await_args.args[0]
     assert "respawn:4h" in await killed(name="vulcanarch grymnir")
     msg = await killed(name="vulcanarch grymnir", respawn="8h")

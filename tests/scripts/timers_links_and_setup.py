@@ -4,7 +4,7 @@ os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
-import db, util, timers, links, guilds
+import db, util, timers, links, guilds, timer_board, timer_commands
 
 UTC = timezone.utc
 D = util.parse_duration
@@ -65,9 +65,9 @@ async def main():
     assert timers.canonical(B, "Reshanta Boss") == ("Reshanta Boss", None, None)
     assert "Reshanta Boss" in timers.all_names(A) and "Reshanta Boss" not in timers.all_names(B)
     assert "Field Bosses" in timers.all_categories(A) and "Field Bosses" in timers.all_categories(B)  # now a built-in section for every server
-    ea, eb = timers.build_embed(A), timers.build_embed(B)
+    ea, eb = timer_board.build_embed(A), timer_board.build_embed(B)
     assert "Reshanta Boss" in str(ea.to_dict()) and "Reshanta Boss" not in str(eb.to_dict())
-    assert timers.build_embed(A, "Nothing") is None
+    assert timer_board.build_embed(A, "Nothing") is None
 
     # notifications use the subscriber's server
     now = int(time.time())
@@ -82,14 +82,14 @@ async def main():
     class FB:
         def get_user(s, i): return U(i)
         async def fetch_user(s, i): return U(i)
-    cog = timers.Timers.__new__(timers.Timers); cog.bot = FB()
-    await timers.Timers.notify_loop.coro(cog)
+    cog = timer_commands.Timers.__new__(timer_commands.Timers); cog.bot = FB()
+    await timer_commands.Timers.notify_loop.coro(cog)
     assert [i for i, _ in sent] == [5], sent                  # user 6 wants 1 min before
-    await timers.Timers.notify_loop.coro(cog); assert len(sent) == 1   # not twice
+    await timer_commands.Timers.notify_loop.coro(cog); assert len(sent) == 1   # not twice
     # a manual one-shot in server B moves the time for B's subscriber only
     timers.save_manual(B, "Watcher Kaira", "World Bosses", now + 30, None, None, None, 1)
     c.execute("DELETE FROM timer_notified"); c.commit(); sent.clear()
-    await timers.Timers.notify_loop.coro(cog)
+    await timer_commands.Timers.notify_loop.coro(cog)
     assert sorted(i for i, _ in sent) == [5, 6], sent
 
     # links and boss lists are per server
@@ -109,13 +109,13 @@ async def main():
     # huge list stays within Discord limits
     timers.store_rules([(f"Boss number {i} with a fairly long name", "World Bosses", "every 2h") for i in range(150)])
     timers.purge_old()
-    d = timers.build_embed(B, max_chars=5900).to_dict()
+    d = timer_board.build_embed(B, max_chars=5900).to_dict()
     total = len(d["title"]) + len(d["description"]) + len(d.get("footer", {}).get("text", "")) + sum(len(f["name"])+len(f["value"]) for f in d["fields"])
     assert total <= 6000 and len(d["fields"]) <= 25 and "more not shown" in d["footer"]["text"], total
 
     # commands register, including the new /setup
     bot = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.default())
-    await timers.setup(bot); await guilds.setup(bot)
+    await timer_commands.setup(bot); await guilds.setup(bot)
     names = sorted(x.name for x in bot.tree.get_commands()); print(names)
     assert {"timer-setup", "timers", "setup"} <= set(names)
     for cmd in bot.tree.get_commands():

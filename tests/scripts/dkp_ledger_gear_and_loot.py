@@ -3,7 +3,7 @@ os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
-import db, dkp, events
+import db, dkp, events, dkp_commands
 
 G, H = 1, 2
 async def main():
@@ -99,7 +99,7 @@ async def main():
 
     # commands register with valid payloads
     bot = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.default())
-    await dkp.setup(bot)
+    await dkp_commands.setup(bot)
     names = sorted(x.name for x in bot.tree.get_commands()); print(names)
     assert names == ["dkp", "dkp-setup", "gear", "loot"], names
     for g in ("dkp", "gear", "loot"): print(g, sorted(o.name for o in bot.tree.get_command(g).commands))

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, AsyncMock
 p = os.path.join(tempfile.mkdtemp(), "old.db")
 os.environ["DB_PATH"] = p
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import config, db, timers, checklist
+import config, db, timers, checklist, timer_board, timer_commands
 
 now = datetime.now(timezone.utc)
 day = (now - timedelta(hours=config.RESET_UTC_HOUR)).date()
@@ -44,15 +44,15 @@ assert not db.conn().execute("SELECT 1 FROM guild_bosses WHERE name='Eternal Gar
 
 
 async def main():
-    cog = timers.Timers.__new__(timers.Timers)
+    cog = timer_commands.Timers.__new__(timer_commands.Timers)
     it = MagicMock(); it.guild_id = 1; it.user.id = 5; it.response.send_message = AsyncMock()
-    await timers.Timers.killed.callback(cog, it, name="eternal gartua")
+    await timer_commands.Timers.killed.callback(cog, it, name="eternal gartua")
     row = db.conn().execute("SELECT * FROM guild_timer_manual WHERE name='Eternal Gartua'").fetchone()
     assert row["category"] == "Field Bosses" and row["respawn_min"] == 360
     assert abs(row["next_at"] - (time.time() + 6 * 3600)) < 5
-    assert "Eternal Gartua" in str(timers.build_embed(1).to_dict())
+    assert "Eternal Gartua" in str(timer_board.build_embed(1).to_dict())
     it.response.send_message.reset_mock()
-    await timers.Timers.killed.callback(cog, it, name="Silent Dartan")   # two zones, two respawns: asks
+    await timer_commands.Timers.killed.callback(cog, it, name="Silent Dartan")   # two zones, two respawns: asks
     assert "respawn" in it.response.send_message.await_args.args[0].lower()
     print("UPGRADE OK")
 asyncio.run(main())

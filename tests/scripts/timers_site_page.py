@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-import config, db, timers, checklist, gamedata
+import config, db, timers, checklist, gamedata, timer_board, timer_commands
 UTC = timezone.utc
 page = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fixtures", "gamers4life_events_page.html"), encoding="utf-8").read()
 
@@ -58,7 +58,7 @@ def nxt(g, name, now):
 
 async def main():
     db.init()
-    cog = timers.Timers.__new__(timers.Timers); cog.bot = Bot(); cog.session = Session(page)
+    cog = timer_commands.Timers.__new__(timer_commands.Timers); cog.bot = Bot(); cog.session = Session(page)
     assert await cog.fetch_and_store() == "ok"
     assert db.meta_get("timers_region") == "Global"
     assert db.conn().execute("SELECT COUNT(*) c FROM timer_rules").fetchone()["c"] == 13
@@ -82,7 +82,7 @@ async def main():
     assert nxt(EU, "Daily Reset", now).strftime("%a %H:%M") == "Thu 01:00"
     assert nxt(NA, "Weekly Reset", now).strftime("%a %H:%M") == "Wed 07:00"
     assert nxt(NA, "Arena of Tactics", now).strftime("%a %H:%M") == "Thu 15:00"
-    embed = str(timers.build_embed(NA).to_dict())
+    embed = str(timer_board.build_embed(NA).to_dict())
     assert "Daily Reset" in embed and "no upcoming time found" not in embed and "NA East" in embed
 
     # the checklist resets with those timers, and with a correction made by /timers set
@@ -109,7 +109,7 @@ async def main():
     assert timers.field_respawn("soul ruler kashapa") == 360 and timers.field_respawn("Immortal Gartua") == 720
     assert timers.field_respawn("Silent Dartan (Verteron)") == 180 and timers.field_respawn("Silent Dartan (Altgard)") == 360
     assert timers.field_respawn("Silent Dartan") is None     # differs by zone, so the zone has to be picked
-    picks = [c.name for c in timers.Timers._name_choices(NA, "lagta")]
+    picks = [c.name for c in timer_commands.Timers._name_choices(NA, "lagta")]
     assert "High Commander Lagta (Verteron)" in picks and "High Commander Lagta (Altgard)" in picks, picks
     assert {"Eternal Gartua", "Silent Dartan", "Soul Ruler Kashapa", "High Commander Lagta"} <= set(gamedata.field_boss_names())
     print("REGION OK")

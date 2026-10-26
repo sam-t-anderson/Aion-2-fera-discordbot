@@ -5,7 +5,9 @@ Per-user daily/weekly checklists, group event planner, event timers and private 
 ## Adding it to a server
 Anyone with the invite link can add the bot. It works straight away, with no setup by the bot's owner:
 each server gets its own boss lists, links, manual timers, timer board and notices channel.
-Commands are global, so a brand-new command can take up to an hour to show up in Discord.
+Commands are global, so a brand-new command can take up to an hour to show up in Discord. People whose Discord is set
+to Korean or Traditional Chinese see the command descriptions and choices in their language (draft translations,
+awaiting native review); command names and the bot's replies stay English.
 
 Invite link: Developer Portal > Bot > turn on **Public Bot**. Then OAuth2 > URL Generator, scopes `bot` and
 `applications.commands`, permissions View Channels, Send Messages, Embed Links, Read Message History.

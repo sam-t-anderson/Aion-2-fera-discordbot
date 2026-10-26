@@ -6,7 +6,7 @@ os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
-import db, timers, guilds
+import db, guilds, timer_board
 
 
 def _text(embed):
@@ -19,7 +19,7 @@ async def main():
     db.conn().commit()
 
     # No faction set: both factions' zone field bosses show, plus the Abyss list.
-    e = timers.build_embed(1); t = _text(e)
+    e = timer_board.build_embed(1); t = _text(e)
     assert "Kernon of the West" in t, "Verteron/Elyos boss missing"
     assert "Melted Danar" in t, "Altgard/Asmodian boss missing"
     assert "Watcher Kaira" in t and "no reliable community timer" in t.lower(), "Abyss boss missing"
@@ -29,13 +29,13 @@ async def main():
 
     # Faction Elyos: Altgard (Asmodian) bosses drop out; Verteron + Abyss stay.
     db.set_settings(1, faction="elyos")
-    t = _text(timers.build_embed(1))
+    t = _text(timer_board.build_embed(1))
     assert "Kernon of the West" in t and "Watcher Kaira" in t
     assert "Melted Danar" not in t and "Black Warrior Aed" not in t
 
     # Faction Asmodian: the mirror image.
     db.set_settings(1, faction="asmodian")
-    t = _text(timers.build_embed(1))
+    t = _text(timer_board.build_embed(1))
     assert "Melted Danar" in t and "Kernon of the West" not in t
     # A boss that lives in both zones with the same respawn is contested -> shows either way.
     assert "Soul Ruler Kashapa" in t

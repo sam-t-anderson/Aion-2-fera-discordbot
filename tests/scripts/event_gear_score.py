@@ -14,9 +14,9 @@ CREATE TABLE signups (event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, statu
 INSERT INTO signups (event_id, user_id, status, role, power, joined_at) VALUES (1, 7, 'yes', 'tank', 12500, 1);
 """)
 o.commit(); o.close()
-import db, events
+import db, events, event_panels
 
-P = events.parse_stat
+P = event_panels.parse_stat
 assert P("12500", 99_999_999) == 12500 and P(" 12,500 ", 99_999_999) == 12500 and P("12.5k", 99_999_999) == 12500
 assert P("", 99_999) is None and P("   ", 99_999) is None and P("2100", 99_999) == 2100
 for bad in ("abc", "0", "-5", "100000", "nan", "inf", "1e99"):
@@ -39,14 +39,14 @@ async def main():
     assert "12,500 CP" in events._player_line(old) and "GS" not in events._player_line(old)
 
     async def submit(cp, gs, uid=7):
-        modal = events.CPModal(1, old["power"], old["gear_score"])
+        modal = event_panels.CPModal(1, old["power"], old["gear_score"])
         modal.cp._value, modal.gs._value = cp, gs
         it = MagicMock(); it.user.id = uid; it.guild_id = 1; it.message = None
         it.response.send_message = AsyncMock(); it.response.edit_message = AsyncMock(); it.client = MagicMock()
         await modal.on_submit(it)
         return it
 
-    modal = events.CPModal(1, 12500, 2100)
+    modal = event_panels.CPModal(1, 12500, 2100)
     assert [i.label for i in modal.children] == ["Your combat power (leave empty to clear)", "Your gear score (leave empty to clear)"]
     assert modal.cp.default == "12500" and modal.gs.default == "2100" and len(modal.title) <= 45
 
@@ -54,7 +54,7 @@ async def main():
     su = events.get_signup(1, 7)
     assert su["power"] == 13000 and su["gear_score"] == 2150
     assert events._player_line(su) == "<@7> · 13,000 CP · 2,150 GS"
-    embed, view = events.panel_parts(ev, 7)
+    embed, view = event_panels.panel_parts(ev, 7)
     assert "Combat power: **13,000**" in embed.description and "Gear score: **2,150**" in embed.description
     assert "Set combat power / gear score" in [c.item.label for c in view.children]
     assert "2,150 GS" in str(events.render_event(ev, events.get_signups(1)).to_dict())
@@ -65,7 +65,7 @@ async def main():
     assert events._player_line(su) == "<@7> · 2,200 GS"
     await submit("", "")
     su = events.get_signup(1, 7); assert su["power"] is None and su["gear_score"] is None
-    assert "Gear score: **not set**" in events.panel_parts(ev, 7)[0].description
+    assert "Gear score: **not set**" in event_panels.panel_parts(ev, 7)[0].description
 
     # a bad number changes nothing and says why
     await submit("13000", "2100")

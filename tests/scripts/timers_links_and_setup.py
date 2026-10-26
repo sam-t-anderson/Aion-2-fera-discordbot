@@ -1,10 +1,10 @@
 import asyncio, os, sys, tempfile, time
-from datetime import datetime, timezone, timedelta
+from datetime import timezone, timedelta
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
-import config, db, util, timers, links, guilds
+import db, util, timers, links, guilds
 
 UTC = timezone.utc
 D = util.parse_duration

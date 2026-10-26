@@ -2,7 +2,7 @@ import asyncio, os, sys, tempfile
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
 import config, db, util, events, timers, links, checklist, health

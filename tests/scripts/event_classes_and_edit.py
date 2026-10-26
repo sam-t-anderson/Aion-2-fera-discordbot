@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, AsyncMock
 from zoneinfo import ZoneInfo
 p = os.path.join(tempfile.mkdtemp(), "old.db")
 os.environ["DB_PATH"] = p
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 # a database from before classes existed, with a signup in it
 o = sqlite3.connect(p)
@@ -19,7 +19,7 @@ INSERT INTO signups (event_id, user_id, status, role, power, joined_at) VALUES (
 """)
 o.commit(); o.close()
 import discord
-import db, events, util
+import db, events
 
 ORG, G, OTHER_G = 99, 1, 2
 NOW = int(time.time())

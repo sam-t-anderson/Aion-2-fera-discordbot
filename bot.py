@@ -1,6 +1,7 @@
 """AION 2 Discord bot: checklists, event planner, timers, links."""
 
 import logging
+import os
 
 import discord
 from discord import app_commands
@@ -11,6 +12,7 @@ import checklist
 import config
 import db
 import dkp
+import errors
 import events
 import fieldbosses
 import gameservers
@@ -18,6 +20,7 @@ import guilds
 import health
 import links
 import news
+import privileges
 import timers
 
 log = logging.getLogger("aion2")
@@ -32,6 +35,9 @@ class GuildOnlyTree(app_commands.CommandTree):
             return False
         db.ensure_guild(interaction.guild_id)
         return True
+
+    async def on_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        await errors.on_command_error(interaction, error)
 
 
 class AionBot(commands.Bot):
@@ -82,4 +88,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if not config.TOKEN:
         raise SystemExit("DISCORD_TOKEN is not set. Put it in the .env file.")
+    # The image starts as root only to give the mounted data folder to its own user. Root is dropped here,
+    # before anything is read from Discord or the web.
+    privileges.drop(config.BOT_USER, os.path.dirname(os.path.abspath(config.DB_PATH)))
     AionBot().run(config.TOKEN, log_handler=None)

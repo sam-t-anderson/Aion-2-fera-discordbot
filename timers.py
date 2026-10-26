@@ -21,6 +21,7 @@ import bosscatalog
 import config
 import db
 import gamedata
+import heartbeat
 import util
 
 log = logging.getLogger("aion2.timers")
@@ -610,6 +611,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
     async def refresh_loop(self):
         try:
             await self.fetch_and_store()
+            heartbeat.beat("timers.refresh", self.refresh_loop)
         except Exception:
             log.exception("Timer refresh error")
 
@@ -654,6 +656,7 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
                             await user.send(text)
                         except discord.HTTPException:
                             log.info("Could not DM user %s (DMs closed?)", s["user_id"])
+            heartbeat.beat("timers.notify", self.notify_loop)
         except Exception:
             log.exception("Timer notify error")
 
@@ -1007,6 +1010,7 @@ class TimerBoard(commands.Cog):
                 log.exception("Timer board edit failed in server %s, will retry", gid)
             except Exception:
                 log.exception("Timer board error in server %s", gid)
+        heartbeat.beat("timers.board", self.board_loop)
 
     @board_loop.before_loop
     async def _before_board(self):

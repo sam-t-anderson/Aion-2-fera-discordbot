@@ -3,10 +3,10 @@ import asyncio, os, sys, tempfile
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import config, db, timers, checklist, gamedata
 UTC = timezone.utc
-page = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "gamers4life_events_page.html"), encoding="utf-8").read()
+page = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fixtures", "gamers4life_events_page.html"), encoding="utf-8").read()
 
 rows = timers.parse_table(page)
 assert len(rows) == 13 and rows[0] == ("Spacetime Rift", "Rifts", "every 3h from 02:00"), rows[:2]

@@ -1,0 +1,5 @@
+# What the bot needs. requirements.txt pins these and everything they pull in, with hashes, for the
+# Python 3.12 image; Dependabot proposes updates to it. After changing this file, regenerate it with
+#   pip install pip-tools && pip-compile --allow-unsafe --generate-hashes --strip-extras requirements.in
+discord.py>=2.4,<3
+tzdata

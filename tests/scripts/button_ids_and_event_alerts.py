@@ -1,7 +1,7 @@
 import os, sys, tempfile, time
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-import db, events, timers, checklist
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+import db, events, checklist
 db.init(); c = db.conn(); now = int(time.time())
 # dynamic item templates
 for cls, good, bad in [(events.EvBtn, ["ev:open:12","ev:cancelok:3","ev:cp:9"], ["ev:set:1:yes:tank","ev:open:x"]),

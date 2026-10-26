@@ -16,6 +16,7 @@ from discord.ext import commands, tasks
 import config
 import db
 import gamedata
+import heartbeat
 import timers
 
 log = logging.getLogger("aion2.servers")
@@ -170,6 +171,7 @@ class GameServers(commands.Cog):
             last = db.meta_get("servers_last_attempt")
             if not last or time.time() - int(last) >= REFRESH_SECONDS:
                 await self.fetch_servers()
+            heartbeat.beat("gameservers.list", self.list_loop)
         except Exception:
             log.exception("Server list refresh error")
 
@@ -177,6 +179,7 @@ class GameServers(commands.Cog):
     async def kills_loop(self):
         try:
             await self.fetch_kills()
+            heartbeat.beat("gameservers.kills", self.kills_loop)
         except Exception:
             log.exception("Kill feed error")
 

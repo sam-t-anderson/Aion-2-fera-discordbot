@@ -22,6 +22,7 @@ from discord.ext import commands, tasks
 
 import config
 import db
+import heartbeat
 
 log = logging.getLogger("aion2.news")
 
@@ -211,6 +212,7 @@ class News(commands.Cog):
     async def news_loop(self):
         try:
             await self.publish_all()
+            heartbeat.beat("news", self.news_loop)
         except Exception:
             log.exception("News feed error")
 

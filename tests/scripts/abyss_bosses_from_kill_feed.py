@@ -3,8 +3,8 @@ live combat-log kill feed, like a field boss: a fed kill that carries a measured
 starts an AUTO timer that supersedes the static "no reliable community timer" reference."""
 import asyncio, os, sys, tempfile, time
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-import db, timers, gameservers, gamedata
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+import db, timers, gameservers
 
 
 def _text(embed):

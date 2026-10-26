@@ -1,5 +1,6 @@
 """SQLite storage shared by every feature."""
 
+import logging
 import os
 import sqlite3
 import time
@@ -8,7 +9,13 @@ from datetime import datetime, timedelta, timezone
 import config
 import gamedata
 
+log = logging.getLogger("aion2.db")
+
 _conn: sqlite3.Connection | None = None
+
+# The layout init() leaves a database in, kept in SQLite's PRAGMA user_version. Raise it with each change
+# to the tables, so a database written by a newer version can be recognised.
+SCHEMA_VERSION = 1
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS progress (
@@ -234,7 +241,6 @@ _OLD_WORLD_BOSSES = (
 
 
 def conn() -> sqlite3.Connection:
-    global _conn
     if _conn is None:
         init()
     assert _conn is not None
@@ -246,8 +252,16 @@ def init(path: str | None = None) -> None:
     global _conn
     path = path or config.DB_PATH
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    _conn = sqlite3.connect(path, check_same_thread=False)
+    # timeout: wait up to ten seconds for a lock someone else holds (SQLite's busy timeout) instead of failing.
+    _conn = sqlite3.connect(path, check_same_thread=False, timeout=10)
     _conn.row_factory = sqlite3.Row
+    # Write-ahead logging: a backup or the sqlite3 tool reading the file never holds up the bot. The
+    # database is then checklist.db with its -wal and -shm files; copy the whole data folder to back it up.
+    _conn.execute("PRAGMA journal_mode=WAL")
+    version = _conn.execute("PRAGMA user_version").fetchone()[0]
+    if version > SCHEMA_VERSION:
+        log.warning("The database was last used by a newer version of the bot (layout %d, this one knows %d). "
+                    "If anything looks wrong, restore the data backup taken before that upgrade.", version, SCHEMA_VERSION)
     _conn.executescript(SCHEMA)
     if not any(r["name"] == "shift_sec" for r in _conn.execute("PRAGMA table_info(guild_timer_manual)").fetchall()):
         _conn.execute("ALTER TABLE guild_timer_manual ADD COLUMN shift_sec INTEGER")
@@ -272,6 +286,9 @@ def init(path: str | None = None) -> None:
     _migrate_regions()
     _migrate_boss_names()
     _migrate_progress_stamps()
+    if version < SCHEMA_VERSION:
+        _conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        _conn.commit()
 
 
 def _migrate_regions() -> None:

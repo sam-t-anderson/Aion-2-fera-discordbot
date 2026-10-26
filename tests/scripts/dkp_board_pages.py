@@ -1,6 +1,6 @@
 import asyncio, os, sys, tempfile, json
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
 import db, dkp
@@ -29,7 +29,6 @@ async def main():
     assert len(ids)>1 and len(ch.msgs)==len(ids)
     await cog.refresh(G); assert ch.edits==0            # unchanged -> no edits
     dkp.add_entry(G,5000,5000,"award","x",9); await cog.refresh(G); assert ch.edits>=1
-    first=sorted(ch.msgs)
     ids=json.loads(c.execute('SELECT message_ids FROM dkp_boards').fetchone()[0])
     del ch.msgs[ids[1]]                                  # delete a middle page
     cog._last.pop(G)                                     # what the delete listener does

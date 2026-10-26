@@ -4,7 +4,7 @@ They reuse the same validation as /setup region and /setup server."""
 import asyncio, os, sys, tempfile
 from unittest.mock import MagicMock, AsyncMock
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import discord
 from discord.ext import commands
 import db, timers, gamedata

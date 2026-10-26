@@ -2,7 +2,7 @@
 import asyncio, json, os, sys, tempfile, time
 from unittest.mock import MagicMock, AsyncMock
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import db, timers, bosscatalog
 
 

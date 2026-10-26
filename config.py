@@ -20,6 +20,8 @@ TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
 GUILD_ID = os.getenv("GUILD_ID", "").strip()
 ANNOUNCE_CHANNEL_ID = os.getenv("ANNOUNCE_CHANNEL_ID", "").strip()
 DB_PATH = os.getenv("DB_PATH", "/data/checklist.db")
+# The image's own user (set in the Dockerfile): the bot gives it the data folder and drops root at start.
+BOT_USER = os.getenv("BOT_USER", "").strip()
 
 # Checklist resets, used only while the timers site lists no "Daily Reset" / "Weekly Reset"
 # (normally the checklist follows those timers). RESET_UTC_HOUR 13 = 7:00 AM MDT / 6:00 AM MST.

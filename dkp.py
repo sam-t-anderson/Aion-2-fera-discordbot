@@ -6,7 +6,6 @@ import csv
 import io
 import json
 import logging
-import re
 import time
 from datetime import datetime
 from typing import Optional
@@ -17,7 +16,9 @@ from discord.ext import commands, tasks
 
 import config
 import db
+import errors
 import events as events_mod
+import heartbeat
 import util
 
 log = logging.getLogger("aion2.dkp")
@@ -214,6 +215,7 @@ class ClaimButton(discord.ui.DynamicItem[discord.ui.Button], template=r"dkp:clai
     async def from_custom_id(cls, interaction, item, match):
         return cls(int(match["id"]))
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         status, r = claim_reward(self.reward_id, interaction.user.id)
         if status == "ok":
@@ -338,6 +340,7 @@ class BatchButton(discord.ui.DynamicItem[discord.ui.Button], template=r"dkp:batc
     async def from_custom_id(cls, interaction, item, match):
         return cls(int(match["id"]), match["act"])
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         b = db.conn().execute("SELECT * FROM dkp_batches WHERE id=?", (self.batch_id,)).fetchone()
         if not b or b["guild_id"] != interaction.guild_id:
@@ -379,6 +382,7 @@ class AmountModal(discord.ui.Modal, title="DKP for this event"):
         self.batch_id = batch_id
         self.amount.default = str(current)
 
+    @errors.guarded
     async def on_submit(self, interaction: discord.Interaction):
         b = db.conn().execute("SELECT * FROM dkp_batches WHERE id=?", (self.batch_id,)).fetchone()
         try:
@@ -530,6 +534,7 @@ class Dkp(commands.GroupCog, group_name="dkp", group_description="DKP points for
                     await msg.edit(embed=reward_embed(r, n, True), view=view)
                 except discord.HTTPException:
                     log.info("Could not close check-in message %s", r["id"])
+            heartbeat.beat("dkp.close", self.close_loop)
         except Exception:
             log.exception("DKP close loop error")
 
@@ -1178,6 +1183,7 @@ class DkpBoard(commands.Cog):
                 await self.refresh(row["guild_id"])
             except Exception:
                 log.exception("DKP board error in server %s", row["guild_id"])
+        heartbeat.beat("dkp.board", self.board_loop)
 
     @board_loop.before_loop
     async def _before(self):

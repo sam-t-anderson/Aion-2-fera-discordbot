@@ -1,7 +1,7 @@
-import os, sys, tempfile, time
+import os, sys, tempfile
 from datetime import datetime, timezone, timedelta
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import db, timers
 UTC = timezone.utc
 G = 1

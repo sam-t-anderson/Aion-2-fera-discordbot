@@ -1,0 +1,18 @@
+# Weekly update proposals for the pinned Python packages and the GitHub Actions in CI. Each one is a
+# pull request; CI runs on it, and merging it is the deploy, as with any change.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python-packages:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,5 +1,5 @@
 # Tests on every push and pull request. The server's updater only installs a main
-# revision after this workflow (it must stay named "CI") has passed for it.
+# revision after this workflow (it must stay named "CI") has passed for it, every job included.
 name: CI
 
 on:
@@ -24,16 +24,47 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements.txt
-      - run: pip install -r requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - run: pip install --require-hashes -r requirements.txt
+      - run: pip install -r requirements-dev.txt
       - run: python -m compileall -q .
-      - name: Run every test script
-        run: |
-          for t in tests/test*.py; do
-            echo "== $t"
-            python "$t"
-          done
+      - name: Lint
+        run: python -m pyflakes *.py deploy/*.py docs/*.py tests
+      - name: Tests (unit tests, and each feature script in its own process)
+        run: python -m pytest -q
       - name: Deploy scripts parse
         run: |
           for f in deploy/*.sh; do bash -n "$f"; done
           python -m py_compile deploy/check-update-ci.py
+
+  image:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image the server builds
+        run: docker build -t fera-ci .
+      - name: Start as root, hand over a root-owned data folder, run as the bot's user
+        run: |
+          mkdir ci-data
+          echo leftover > ci-data/field-bosses.live.json
+          sudo chown -R root:root ci-data
+          docker run --rm -v "$PWD/ci-data:/data" fera-ci python -c '
+          import json, os
+          import config, db, gamedata, privileges
+          assert os.geteuid() == 0, "the image should start as root"
+          with open("assets/field-bosses.json", encoding="utf-8") as f:
+              assert gamedata.FIELD_BOSSES == gamedata.parse(json.load(f))[0], "field bosses not loaded from assets"
+          assert privileges.drop(config.BOT_USER, os.path.dirname(config.DB_PATH)), "privilege drop failed"
+          assert (os.geteuid(), os.getegid(), os.getgroups()) == (1000, 1000, []), "still privileged"
+          db.init()
+          db.meta_set("ci", "ok")
+          assert db.conn().execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+          print("image ok as", os.geteuid())
+          '
+          ls -ln ci-data
+          test "$(stat -c %u:%g ci-data)" = 1000:1000
+          test "$(stat -c %u ci-data/checklist.db)" = 1000
+          test "$(stat -c %u ci-data/field-bosses.live.json)" = 1000

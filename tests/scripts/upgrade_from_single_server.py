@@ -16,7 +16,7 @@ INSERT INTO timer_manual VALUES ('Reshanta Boss','Field Bosses',4102444800,NULL,
 INSERT INTO timer_subs VALUES (5,'name','Reshanta Boss',5);
 """)
 o.commit(); o.close()
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import db
 db.init(); c = db.conn()
 assert db.bosses(999, "raid") == ["My Custom Raid"], db.bosses(999, "raid")       # their list kept as it was

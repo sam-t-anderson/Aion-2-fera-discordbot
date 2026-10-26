@@ -12,6 +12,8 @@ from discord.ext import commands, tasks
 
 import config
 import db
+import errors
+import heartbeat
 import util
 
 log = logging.getLogger("aion2.events")
@@ -563,6 +565,7 @@ class EvBtn(
     async def from_custom_id(cls, interaction, item, match, /):
         return cls(match["act"], match["id"])
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         await HANDLERS[self.act](interaction, self.event_id)
 
@@ -583,6 +586,7 @@ class EvSet(
     async def from_custom_id(cls, interaction, item, match, /):
         return cls(match["id"], match["status"], match["role"])
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         ev = _open_event(interaction, self.event_id)
         if not ev:
@@ -611,6 +615,7 @@ class EvClass(
     async def from_custom_id(cls, interaction, item, match, /):
         return cls(match["id"], match["cls"])
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         ev = _open_event(interaction, self.event_id)
         if not ev:
@@ -665,6 +670,7 @@ class CPModal(discord.ui.Modal, title="Combat power and gear score"):
         self.add_item(self.cp)
         self.add_item(self.gs)
 
+    @errors.guarded
     async def on_submit(self, interaction: discord.Interaction):
         try:
             power = parse_stat(self.cp.value, 99_999_999)
@@ -755,6 +761,7 @@ class EditModal(discord.ui.Modal, title="Edit event"):
         for item in (self.when_input, self.name_input, self.size_input, self.notes_input):
             self.add_item(item)
 
+    @errors.guarded
     async def on_submit(self, interaction: discord.Interaction):
         ev = get_event(self.event_id)
         if not ev or ev["status"] != "open":
@@ -893,6 +900,7 @@ class Events(commands.GroupCog, group_name="event", group_description="Plan grou
                 c.execute("DELETE FROM events WHERE id=?", (row["id"],))
             if old:
                 c.commit()
+            heartbeat.beat("events.tick", self.tick)
         except Exception:
             log.exception("Event tick error")
 

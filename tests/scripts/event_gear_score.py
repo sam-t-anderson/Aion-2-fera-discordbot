@@ -3,7 +3,7 @@ import asyncio, os, sqlite3, sys, tempfile, time
 from unittest.mock import MagicMock, AsyncMock
 p = os.path.join(tempfile.mkdtemp(), "old.db")
 os.environ["DB_PATH"] = p
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 # a database from before gear score existed, with a signup in it
 o = sqlite3.connect(p)

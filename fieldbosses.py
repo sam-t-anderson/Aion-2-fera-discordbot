@@ -20,6 +20,7 @@ from discord.ext import commands, tasks
 import config
 import db
 import gamedata
+import heartbeat
 import timers
 
 log = logging.getLogger("aion2.fieldbosses")
@@ -114,6 +115,7 @@ class FieldBosses(commands.Cog):
             last = db.meta_get("fieldbosses_last_attempt")
             if not last or time.time() - int(last) >= REFRESH_SECONDS:
                 await self.fetch()
+            heartbeat.beat("fieldbosses.refresh", self.refresh_loop)
         except Exception:
             log.exception("Field boss refresh error")
 

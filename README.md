@@ -53,11 +53,17 @@ Raid 10 (global first raid), Arena 4 (4v4), Faction PvP 10, World Boss 10, Rift 
 Sub-party size defaults to 5 (global party size), 4 for arena. Every event can override both.
 
 ## Health check
-`http://SERVER_IP:8099/health` returns 200 when the bot is connected to Discord and 503 otherwise.
+`http://SERVER_IP:8099/health` returns 200 when the bot is connected to Discord and 503 otherwise. The JSON also
+lists each background job's last good round (`loops`; any that stopped show in `stale_loops`) and how long ago each
+outside source was last read (`sources_last_ok_age_seconds`). A monitor that should alert on a stuck job can look for
+`"stale_loops": []`.
 
 ## Run
     docker compose up -d --build
     docker logs -f aion2-checklist
+
+The container starts as root only to give the `data/` folder to its own user (uid 1000), then runs as that user.
+The database uses SQLite's write-ahead log, so back up the whole `data/` folder, not just `checklist.db`.
 
 ## Automatic updates
 The server can update itself from `main`. A systemd timer checks every 15 minutes (and after a reboot); when `main`
@@ -87,4 +93,10 @@ rollback: if the bot is not healthy after an update the updater reports it and t
 `docker compose exec aion2-checklist python inspect_timers.py` shows which region the timers page is serving and whether the bot accepts it.
 
 ## Running the tests
-From the repo root: `pip install -r requirements.txt` then `for t in tests/test*.py; do python3 $t; done`. See `CLAUDE.md` for project notes.
+From the repo root: `pip install -r requirements.txt -r requirements-dev.txt`, then `python -m pytest`. Each feature
+script in `tests/scripts` also runs on its own, for example `python tests/scripts/news_posting.py`. See `CLAUDE.md` for
+project notes.
+
+## Dependencies
+`requirements.txt` pins every package with hashes; it is generated from `requirements.in` (the command is in its
+header). Dependabot proposes updates as pull requests, and CI has to pass on them before they can be merged.

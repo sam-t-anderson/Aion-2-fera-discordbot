@@ -4,7 +4,7 @@ copy is cached for restarts, and /setup show says where the list comes from."""
 import asyncio, copy, json, os, sys, tempfile
 from unittest.mock import MagicMock, AsyncMock
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import db, gamedata, timers, fieldbosses, guilds
 
 

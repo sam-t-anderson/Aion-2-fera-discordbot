@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, AsyncMock
 p = os.path.join(tempfile.mkdtemp(), "old.db")
 os.environ["DB_PATH"] = p
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 import config, db, timers, checklist
 
 now = datetime.now(timezone.utc)

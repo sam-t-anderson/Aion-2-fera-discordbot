@@ -13,7 +13,7 @@ from discord.ext import commands, tasks
 
 import config
 import db
-import gamedata
+import heartbeat
 
 log = logging.getLogger("aion2.bosses")
 
@@ -146,6 +146,7 @@ class BossCatalog(commands.Cog):
             last = db.meta_get("bosses_last_attempt")
             if not last or time.time() - int(last) >= REFRESH_SECONDS:
                 await self.fetch_and_store()
+            heartbeat.beat("bosscatalog.refresh", self.refresh_loop)
         except Exception:
             log.exception("Boss list refresh error")
 

@@ -9,6 +9,8 @@ from discord.ext import commands, tasks
 
 import config
 import db
+import errors
+import heartbeat
 import timers
 
 log = logging.getLogger("aion2.checklist")
@@ -162,6 +164,7 @@ class OpenButton(
     async def from_custom_id(cls, interaction, item, match, /):
         return cls(match["kind"])
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         counts = get_counts(interaction.user.id, self.kind, interaction.guild_id)
         await interaction.response.send_message(
@@ -185,6 +188,7 @@ class TickButton(
     async def from_custom_id(cls, interaction, item, match, /):
         return cls(match["kind"], match["item"])
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         uid, n = interaction.user.id, ITEM_MAX[self.kind].get(self.item_id)
         if n is None:
@@ -213,6 +217,7 @@ class BulkButton(
     async def from_custom_id(cls, interaction, item, match, /):
         return cls(match["kind"], match["mode"])
 
+    @errors.guarded
     async def callback(self, interaction: discord.Interaction):
         uid = interaction.user.id
         counts = {}
@@ -255,6 +260,7 @@ class Checklist(commands.Cog):
                         await channel.send(f"The AION 2 **{kind}** checklist has reset.")
                     except discord.HTTPException:
                         log.info("Could not announce the %s reset in server %s", kind, gid)
+            heartbeat.beat("checklist.reset", self.reset_loop)
         except Exception:
             log.exception("Checklist reset loop error")
 

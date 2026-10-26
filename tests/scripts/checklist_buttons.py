@@ -1,7 +1,7 @@
 """Pressing a checklist button must change the count, going through discord.py's own dynamic-item dispatch."""
-import asyncio, os, sys, tempfile, logging
+import asyncio, os, sys, tempfile
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 from unittest.mock import MagicMock, AsyncMock
 import discord
 from discord.ext import commands

@@ -60,7 +60,7 @@ Raid, world boss and custom events need a `name`. For raids and world bosses, pi
 
 ## Timers
 
-The bot reads the event schedule on gamers4.life (https://gamers4.life/aion-2/database/en/events/) every 15 minutes and keeps it for a week. The bot only accepts the Global version of the schedule. Each Global region (NA East, NA West, EU, SA, JP) runs that schedule on its own server clock, so a server manager picks the region with `/setup region` (NA East until then). The site publishes recurring schedules only and does not know individual boss respawns. Manual timers fill that gap.
+The bot reads the event schedule on gamers4.life (https://gamers4.life/aion-2/database/en/events/) every 15 minutes and keeps it for a week. The bot only accepts the Global version of the schedule. Each Global region (NA East, NA West, EU, SA, JP) runs that schedule on its own server clock, so a server manager picks the region with `/setup region` (NA East until then). The site publishes recurring schedules only and does not know individual boss respawns. Manual timers fill that gap. When the official patch notes change a schedule before the site does, the bot uses the official times until the site catches up: since the 4 November 2026 update the Artifact Siege (21:00) and its three bosses (21:30) come on Thursdays and Saturdays only, and Argo, the Spirit King spawns at 10:30 and 22:30 every day, each on your region's server clock.
 
 **Viewing**
 
@@ -71,7 +71,7 @@ The bot reads the event schedule on gamers4.life (https://gamers4.life/aion-2/da
 **Fixing or adding a time (shared with everyone)**
 
 - `/timers set name when`: sets when a timer starts. If the site lists that timer, every start moves by the same amount (up to 12 hours either way) and stays that way until you `/timers clear` it. Add `only_this_time:True` to change just one start, or `repeat:4h` to make it repeat. Without a site schedule it creates a new timer with the `category` you pick.
-- `/timers killed name`: a boss just died, so its respawn countdown starts now. The bot knows the respawn of the Verteron and Altgard field bosses (Eternal Gartua, Soul Ruler Kashapa and so on), so pick the name from the list and you are done. Silent Dartan and High Commander Lagta respawn at different speeds in each zone, so pick the one with your zone in its name. For any other boss add `respawn:4h` the first time. The bot remembers the length for next time. The name list covers every open-world boss in the Global client (Verteron, Altgard, Eltnen, Morheim and Reshanta), read once a day from aion2data.com, and the reply shows the boss's level and where it stands.
+- `/timers killed name`: a boss just died, so its respawn countdown starts now. The bot knows the respawn of the Verteron and Altgard field bosses (Eternal Gartua, Soul Ruler Kashapa and so on), so pick the name from the list and you are done. Silent Dartan respawns at different speeds in each zone, so pick the one with your zone in its name. For any other boss add `respawn:4h` the first time. The bot remembers the length for next time. The name list covers every open-world boss in the Global client (Verteron, Altgard, Eltnen, Morheim and Reshanta), read once a day from aion2data.com, and the reply shows the boss's level and where it stands.
 - Kills from combat logs: when a server manager has picked your game server with `/setup server`, a field boss kill in a combat log uploaded from the Aion 2 Calc app starts that boss's respawn timer by itself, marked "from combat logs". It appears when the log is uploaded, not the moment the boss dies. A later `/timers killed` wins over it.
 - `/timers clear name`: removes the manual time and goes back to the site's schedule. Only the person who set it or a server manager can clear it.
 - The list shows who set each manual time.
@@ -210,7 +210,7 @@ After changing `.env`, run `docker compose up -d` in the folder.
 
 **Health**
 
-The page `http://192.168.1.101:8099/health` returns 200 while the bot is connected to Discord and 503 otherwise. Uptime Kuma and Homepage watch it, and it reports how many servers the bot is in. View logs with `docker logs aion2-checklist --tail 50`.
+The page `http://192.168.1.101:8099/health` returns 200 while the bot is connected to Discord and 503 otherwise. It answers from the moment the bot starts: while the bot is not online, `phase` says what it is doing (logging in, loading, connecting to Discord, reconnecting) and `commands` whether the slash commands are registered. If the page does not answer at all, the bot is not running, and its log says why: `docker logs aion2-checklist --tail 50`. Uptime Kuma and Homepage watch it, and it reports how many servers the bot is in.
 
 **Upgrading**
 

@@ -1,15 +1,16 @@
 {
   "version": 1,
-  "checked_at": "2026-10-11",
-  "review_after": "2026-10-25",
+  "checked_at": "2026-11-04",
+  "review_after": "2026-11-18",
   "status": "community_unverified",
   "disputed": true,
-  "note": "Community-reported respawn reference for named field bosses, measured from the moment the boss is killed (not a fixed clock). Sources disagree on whether these cycles are fixed at all, so treat every value as a community estimate and confirm in game. The Altgard set was reported as checked in game; the Verteron set was not. Global is reported to run cycles at roughly half the Korean notice. Abyss bosses use a scheduled start instead of a kill-based cycle. Nothing here establishes live spawn state.",
+  "note": "Community-reported respawn reference for named field bosses, measured from the moment the boss is killed (not a fixed clock). Sources disagree on whether these cycles are fixed at all, so treat every value as a community estimate and confirm in game. The Altgard set was reported as checked in game; the Verteron set was not. Global is reported to run cycles at roughly half the Korean notice. Abyss bosses use a scheduled start instead of a kill-based cycle. Nothing here establishes live spawn state. Since the 4 November 2026 update the official patch notes give Eternal Gartua, Immortal Gartua and both High Commander Lagtas 11 hours (12 before, for both factions), the three Artifact Bosses Thursdays and Saturdays at 21:30 server time, and Argo, the Spirit King 10:30 and 22:30 daily.",
   "sources": [
     {"name": "couga54 AION 2 guides — world bosses (per-boss respawn cycles; Altgard checked in game)", "url": "https://couga54.github.io/aion2-guides/en/bosses/"},
     {"name": "Wikily — AION 2 field bosses, spawn locations and drops (catalog)", "url": "https://wikily.gg/aion-2/bosses"},
     {"name": "Questlog — AION 2 boss schedule (scheduled Abyss bosses)", "url": "https://questlog.gg/aion-2/en/boss-schedule"},
-    {"name": "Shugo.GG — AION 2 timers (scheduled Abyss bosses)", "url": "https://shugo.gg/timers"}
+    {"name": "Shugo.GG — AION 2 timers (scheduled Abyss bosses)", "url": "https://shugo.gg/timers"},
+    {"name": "AION 2 official patch notes, 3 Nov (PST) / 4 Nov (CET) 2026 (Gartua and High Commander Lagta, Artifact Bosses, Argo, the Spirit King)", "url": "https://aion2.plaync.com/en-us/board/update/view?articleId=6aead0e86cfe4756db5b913f"}
   ],
   "bosses": [
     {"name": "Kernon of the West", "faction": "elyos", "zone": "Verteron · Cantas Valley", "level": 45, "respawn_minutes": 30, "checked_in_game": false},
@@ -34,8 +35,8 @@
     {"name": "Phantasm Kasia", "faction": "elyos", "zone": "Verteron · Garden of the Illusion God", "level": 45, "respawn_minutes": 360, "checked_in_game": false},
     {"name": "Silent Dartan", "faction": "elyos", "zone": "Verteron · Artamia Plateau South", "level": 48, "respawn_minutes": 180, "checked_in_game": false},
     {"name": "Soul Ruler Kashapa", "faction": "elyos", "zone": "Verteron · Artamia Plateau East", "level": 48, "respawn_minutes": 360, "checked_in_game": false},
-    {"name": "High Commander Lagta", "faction": "elyos", "zone": "Verteron · Red Forest", "level": 48, "respawn_minutes": 360, "checked_in_game": false},
-    {"name": "Eternal Gartua", "faction": "elyos", "zone": "Verteron · Isle of Eternity", "level": 51, "respawn_minutes": 360, "checked_in_game": false},
+    {"name": "High Commander Lagta", "faction": "elyos", "zone": "Verteron · Red Forest", "level": 48, "respawn_minutes": 660, "checked_in_game": false},
+    {"name": "Eternal Gartua", "faction": "elyos", "zone": "Verteron · Isle of Eternity", "level": 51, "respawn_minutes": 660, "checked_in_game": false},
     {"name": "Melted Danar", "faction": "asmodian", "zone": "Altgard · Dredgion Crash Site", "level": 45, "respawn_minutes": 30, "checked_in_game": true},
     {"name": "Black Warrior Aed", "faction": "asmodian", "zone": "Altgard · Nameless Graveyard", "level": 45, "respawn_minutes": 30, "checked_in_game": true},
     {"name": "Faithful Rajit", "faction": "asmodian", "zone": "Altgard · Sanctuary Watch Post", "level": 45, "respawn_minutes": 30, "checked_in_game": true},
@@ -58,13 +59,13 @@
     {"name": "Sharp Shylak", "faction": "asmodian", "zone": "Altgard · Impetusium Plaza", "level": 45, "respawn_minutes": 360, "checked_in_game": true},
     {"name": "Silent Dartan", "faction": "asmodian", "zone": "Altgard · Forest of Purification", "level": 48, "respawn_minutes": 360, "checked_in_game": true},
     {"name": "Soul Ruler Kashapa", "faction": "asmodian", "zone": "Altgard · Pafnite Burial Ground", "level": 48, "respawn_minutes": 360, "checked_in_game": true},
-    {"name": "High Commander Lagta", "faction": "asmodian", "zone": "Altgard · Ragta Fortress", "level": 48, "respawn_minutes": 720, "checked_in_game": true},
-    {"name": "Immortal Gartua", "faction": "asmodian", "zone": "Altgard · Isle of Immortality", "level": 51, "respawn_minutes": 720, "checked_in_game": true},
+    {"name": "High Commander Lagta", "faction": "asmodian", "zone": "Altgard · Ragta Fortress", "level": 48, "respawn_minutes": 660, "checked_in_game": false},
+    {"name": "Immortal Gartua", "faction": "asmodian", "zone": "Altgard · Isle of Immortality", "level": 51, "respawn_minutes": 660, "checked_in_game": false},
     {"name": "Watcher Kaira", "faction": "abyss", "zone": "Chaotic Lower Reshanta (random spot)", "level": 65, "respawn_minutes": null, "schedule": "Global: every 3 hours from 01:00 server time. See Regional event timers above.", "checked_in_game": false},
-    {"name": "Executor Tamasa", "faction": "abyss", "zone": "Chaotic Lower Reshanta · Reshanta's Root", "level": 65, "respawn_minutes": null, "schedule": "Global: Mon, Thu, Sat 21:30 server time, right after Artifact Siege.", "checked_in_game": false},
-    {"name": "Executor Argo", "faction": "abyss", "zone": "Archipelago of Siel's Wings · Siel's Heart", "level": 65, "respawn_minutes": null, "schedule": "Global: Mon, Thu, Sat 21:30 server time, right after Artifact Siege.", "checked_in_game": false},
-    {"name": "Executor Kaira", "faction": "abyss", "zone": "Sulfur Tree Island · Branding Island", "level": 65, "respawn_minutes": null, "schedule": "Global: Mon, Thu, Sat 21:30 server time, right after Artifact Siege.", "checked_in_game": false},
+    {"name": "Executor Tamasa", "faction": "abyss", "zone": "Chaotic Lower Reshanta · Reshanta's Root", "level": 65, "respawn_minutes": null, "schedule": "Global: Thu and Sat 21:30 server time, right after Artifact Siege (Mon, Thu and Sat until the 4 November 2026 update).", "checked_in_game": false},
+    {"name": "Executor Argo", "faction": "abyss", "zone": "Archipelago of Siel's Wings · Siel's Heart", "level": 65, "respawn_minutes": null, "schedule": "Global: Thu and Sat 21:30 server time, right after Artifact Siege (Mon, Thu and Sat until the 4 November 2026 update).", "checked_in_game": false},
+    {"name": "Executor Kaira", "faction": "abyss", "zone": "Sulfur Tree Island · Branding Island", "level": 65, "respawn_minutes": null, "schedule": "Global: Thu and Sat 21:30 server time, right after Artifact Siege (Mon, Thu and Sat until the 4 November 2026 update).", "checked_in_game": false},
     {"name": "Guardian Lord Nahma", "faction": "abyss", "zone": "Chaotic Lower Reshanta (three spawn points)", "level": 65, "respawn_minutes": null, "schedule": "Global: Fri and Sun 21:00 server time. See Regional event timers above.", "checked_in_game": false},
-    {"name": "Argo the Spirit King", "faction": "abyss", "zone": "Chaotic Lower Reshanta", "level": 65, "respawn_minutes": null, "schedule": "No reliable community timer yet — confirm in game.", "checked_in_game": false}
+    {"name": "Argo, the Spirit King", "faction": "abyss", "zone": "Chaotic Lower Reshanta", "level": 65, "respawn_minutes": null, "schedule": "Global: daily at 10:30 and 22:30 server time (official, since the 4 November 2026 update).", "checked_in_game": false}
   ]
 }

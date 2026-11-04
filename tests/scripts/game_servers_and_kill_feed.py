@@ -85,7 +85,7 @@ async def main():
     cog.session.kills = {"2102": [
         kashapa,
         {"boss": "Silent Dartan", "server": "2102", "killed_at": now - 600, "reports": 1, "respawn_seconds": None},
-        {"boss": "Eternal Gartua", "server": "2102", "killed_at": now - 7 * 3600, "reports": 1},          # already back up
+        {"boss": "Eternal Gartua", "server": "2102", "killed_at": now - 12 * 3600, "reports": 1},         # back up (11 h)
         {"boss": "Vulcanarch Grymnir", "server": "2102", "killed_at": now - 60, "reports": 1},           # respawn unknown
         {"boss": "Some Dungeon Boss", "server": "2102", "killed_at": now - 60, "reports": 1, "respawn_seconds": 3600},
         {"boss": "Kernon of the West", "server": "9999", "killed_at": now - 60, "reports": 1},           # not this server

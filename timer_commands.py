@@ -18,7 +18,8 @@ import util
 from timer_board import TimerBoard, build_embed, fmt_minutes
 from timers import (CATEGORY_CHOICES, FIELD_RESPAWNS, MAX_SHIFT_SEC, all_categories, all_names, canonical,
                     clear_manual, events_between, field_respawn, guild_tz, nearest_site_time, page_accepted,
-                    parse_page_meta, parse_table, purge_old, region_key, save_manual, store_rules)
+                    parse_page_meta, parse_table, purge_old, region_key, save_manual, schedule_changes_key,
+                    store_rules)
 
 log = logging.getLogger("aion2.timers")
 
@@ -47,7 +48,9 @@ class Timers(commands.GroupCog, group_name="timers", group_description="AION 2 e
         db.meta_set("timers_last_attempt", str(int(time.time())))
         headers = {"User-Agent": config.USER_AGENT, "Accept": "text/html"}
         etag = db.meta_get("timers_etag")
-        if etag:
+        # A schedule stored before the bot's official schedule changes (gamedata.SCHEDULE_CHANGES) were last
+        # changed is read in full again, so they apply even while the page itself hasn't changed.
+        if etag and db.meta_get("timers_schedule_changes") == schedule_changes_key():
             headers["If-None-Match"] = etag
         try:
             async with self.session.get(

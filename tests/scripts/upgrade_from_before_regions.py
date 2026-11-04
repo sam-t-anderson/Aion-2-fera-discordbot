@@ -48,8 +48,8 @@ async def main():
     it = MagicMock(); it.guild_id = 1; it.user.id = 5; it.response.send_message = AsyncMock()
     await timer_commands.Timers.killed.callback(cog, it, name="eternal gartua")
     row = db.conn().execute("SELECT * FROM guild_timer_manual WHERE name='Eternal Gartua'").fetchone()
-    assert row["category"] == "Field Bosses" and row["respawn_min"] == 360
-    assert abs(row["next_at"] - (time.time() + 6 * 3600)) < 5
+    assert row["category"] == "Field Bosses" and row["respawn_min"] == 660            # 11 h since 4 November 2026
+    assert abs(row["next_at"] - (time.time() + 11 * 3600)) < 5
     assert "Eternal Gartua" in str(timer_board.build_embed(1).to_dict())
     it.response.send_message.reset_mock()
     await timer_commands.Timers.killed.callback(cog, it, name="Silent Dartan")   # two zones, two respawns: asks

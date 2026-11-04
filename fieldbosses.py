@@ -5,7 +5,9 @@ site carry). Once a day it also reads the copy the Pages site publishes, validat
 way, keeps it in a cache file next to the database, and swaps the live tables in place, so a
 field boss added upstream shows up in /timers without redeploying the bot. A copy that fails
 validation, or a failed download, leaves the tables as they are: the cached copy on restart,
-otherwise the bundled file, otherwise the built-in list."""
+otherwise the bundled file, otherwise the built-in list. A copy checked before the bundled file
+is not used either, cached or downloaded: the bot can ship newer values (a patch's respawns)
+before the Pages copy has them, and that copy would put the old ones back."""
 
 import json
 import logging
@@ -33,23 +35,47 @@ def cache_path() -> Path:
     return Path(config.DB_PATH).resolve().parent / "field-bosses.live.json"
 
 
-def install(doc, source: str, fetched_at: Optional[int] = None) -> int:
-    """Validate and apply a document to the live tables, then refresh timers' derived maps."""
-    count = gamedata.apply(doc)
+def _refresh_timers() -> None:
     timers.FIELD_RESPAWNS.clear()
     timers.FIELD_RESPAWNS.update(gamedata.field_boss_respawns())
     timers.FIELD_FACTIONS.clear()
     timers.FIELD_FACTIONS.update(gamedata.field_boss_factions())
+
+
+def install(doc, source: str, fetched_at: Optional[int] = None) -> int:
+    """Validate and apply a document to the live tables, then refresh timers' derived maps."""
+    count = gamedata.apply(doc)
+    _refresh_timers()
     db.meta_set("fieldbosses_source", source)
     db.meta_set("fieldbosses_count", str(count))
     db.meta_set("fieldbosses_fetched_at", str(int(fetched_at or time.time())))
     return count
 
 
+def older_than_bundled(doc) -> bool:
+    """Whether a published copy was checked before the bundled file."""
+    published = gamedata.checked_at(doc)
+    return bool(published and gamedata.BUNDLED_CHECKED_AT and published < gamedata.BUNDLED_CHECKED_AT)
+
+
+def use_bundled(doc) -> int:
+    """Put the bundled tables back instead of a published copy older than them."""
+    count = gamedata.apply_bundled()
+    _refresh_timers()
+    db.meta_set("fieldbosses_source", "")
+    log.info("Field bosses: the published copy (checked %s) is older than the bundled file (checked %s); "
+             "using the bundled file", gamedata.checked_at(doc), gamedata.BUNDLED_CHECKED_AT)
+    return count
+
+
 def load_cache() -> int:
-    """Apply the cached published copy (from an earlier run), if there is one. 0 when there isn't."""
+    """Apply the cached published copy (from an earlier run), if there is one and it isn't older than the
+    bundled file. 0 when it isn't applied."""
     try:
         doc = json.loads(cache_path().read_text(encoding="utf-8"))
+        if older_than_bundled(doc):
+            use_bundled(doc)
+            return 0
         fetched = int(db.meta_get("fieldbosses_fetched_at") or 0)
         return install(doc, "published copy (cached)", fetched or None)
     except (OSError, ValueError, KeyError, TypeError):
@@ -98,6 +124,12 @@ class FieldBosses(commands.Cog):
             if len(raw) > MAX_BYTES:
                 raise ValueError("published copy is larger than 1 MiB")
             doc = json.loads(raw.decode("utf-8"))
+            if older_than_bundled(doc):
+                # The bot was updated before the Pages copy: keep its newer values until the copy catches up.
+                use_bundled(doc)
+                db.meta_set("fieldbosses_last_error", "")
+                db.meta_set("fieldbosses_last_ok", str(int(time.time())))
+                return 0
             count = install(doc, "published copy")
             cache_path().write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
         except Exception as e:

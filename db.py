@@ -247,6 +247,11 @@ def conn() -> sqlite3.Connection:
     return _conn
 
 
+def is_open() -> bool:
+    """Whether the database has been opened (``init``) yet; the health endpoint answers before it is."""
+    return _conn is not None
+
+
 def init(path: str | None = None) -> None:
     """Open the database, create tables and move data from the single-server layout once."""
     global _conn

@@ -5,6 +5,7 @@ bosses with their own respawns, for example). The /timers commands are in timer_
 list embed and live board in timer_board.py.
 """
 
+import hashlib
 import logging
 import re
 import time
@@ -192,14 +193,47 @@ def tracked(category: str) -> bool:
     return "*" in cats or category.lower() in cats
 
 
+def simple_name(name: str) -> str:
+    """A name without case or punctuation, so "Argo, the Spirit King" and "Argo the Spirit King" match."""
+    return re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+
+
+def official_schedule(rows: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
+    """The site's rows with the official schedule changes it doesn't show yet (``gamedata.SCHEDULE_CHANGES``:
+    only while a row still has the old timing) and the officially scheduled timers it doesn't list
+    (``gamedata.SCHEDULE_ADDITIONS``). Timings stay clock times on each region's own server clock."""
+    changes = {simple_name(name): (parse_rule(old), new) for name, old, new, _source in gamedata.SCHEDULE_CHANGES}
+    out = []
+    for name, cat, timing in rows:
+        change = changes.get(simple_name(name))
+        if change and change[0] is not None and parse_rule(timing) == change[0]:
+            timing = change[1]
+        out.append((name, cat, timing))
+    listed = {simple_name(name) for name, _cat, _timing in out}
+    for name, cat, timing, _source in gamedata.SCHEDULE_ADDITIONS:
+        if simple_name(name) not in listed:
+            out.append((name, cat, timing))
+    return out
+
+
+def schedule_changes_key() -> str:
+    """Changes whenever the official schedule tables do, so a schedule stored before them is read again."""
+    text = repr((gamedata.SCHEDULE_CHANGES, gamedata.SCHEDULE_ADDITIONS))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
 def store_rules(rows: list[tuple[str, str, str]], now_ts: Optional[int] = None):
-    """Save the scraped schedule. Anything new to the catalog is remembered for good.
+    """Save the scraped schedule, with the official changes the site doesn't show yet (``official_schedule``).
+    Anything new to the catalog is remembered for good.
 
     Returns (tracked_count, newly_seen) where newly_seen is empty on the very first
-    run, so the first fetch doesn't announce the whole schedule as "new".
+    run, so the first fetch doesn't announce the whole schedule as "new". tracked_count counts the site's own
+    rows only, so a page with nothing usable on it still shows as one.
     New world bosses are also added to every server's event planner boss list.
     """
     now_ts = now_ts or int(time.time())
+    site_tracked = sum(1 for r in rows if tracked(r[1]))
+    rows = official_schedule(rows)
     c = db.conn()
     first_run = c.execute("SELECT COUNT(*) AS n FROM timer_catalog").fetchone()["n"] == 0
     new = []
@@ -226,7 +260,8 @@ def store_rules(rows: list[tuple[str, str, str]], now_ts: Optional[int] = None):
     c.execute("DELETE FROM timer_rules")
     c.executemany("INSERT INTO timer_rules (name, category, timing) VALUES (?,?,?)", keep)
     c.commit()
-    return len(keep), new
+    db.meta_set("timers_schedule_changes", schedule_changes_key())
+    return site_tracked, new
 
 
 # ---------------------------------------------------------------- storage: manual timers (per server)
@@ -266,9 +301,9 @@ def canonical(guild_id: int, name: str):
     # fallback (it never overrides a classification above), match a fed name — which carries the
     # catalog spelling, e.g. "Argo, the Spirit King" — to the bundled Abyss list punctuation-
     # insensitively, so a fed kill can time an Abyss boss like a field boss timed from a kill.
-    simple = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+    simple = simple_name(name)
     for known, _zone, _sched in gamedata.ABYSS_BOSSES:
-        if re.sub(r"[^a-z0-9]+", " ", known.lower()).strip() == simple:
+        if simple_name(known) == simple:
             return known, ABYSS_CATEGORY, None
     return name, None, None
 

@@ -66,6 +66,25 @@ async def main():
             pass
     assert timers.FIELD_RESPAWNS["Newly Added Tyrant"] == 240 and len(gamedata.FIELD_BOSSES) == len(before) + 1
 
+    # A published copy checked before the bundled file is not used, downloaded or cached: the bot was updated
+    # first (with the 4 November 2026 patch's 11 h for High Commander Lagta, say), and the copy would put the
+    # old values back. The bundled tables are used until the published copy catches up.
+    old = copy.deepcopy(doc)
+    old["checked_at"] = "2026-10-11"
+    for b in old["bosses"]:
+        if b["name"] == "High Commander Lagta":
+            b["respawn_minutes"] = 720
+    cog.session = Session(Resp(old))
+    assert await cog.fetch() == 0 and db.meta_get("fieldbosses_last_error") == ""
+    assert "Newly Added Tyrant" not in timers.FIELD_RESPAWNS and timers.FIELD_RESPAWNS["High Commander Lagta"] == 660
+    assert fieldbosses.describe().endswith("from the bundled file")
+    fieldbosses.install(doc, "published copy")
+    fieldbosses.cache_path().write_text(json.dumps(old), encoding="utf-8")       # cached before the bot's update
+    assert fieldbosses.load_cache() == 0 and "Newly Added Tyrant" not in timers.FIELD_RESPAWNS
+    assert timers.FIELD_RESPAWNS["High Commander Lagta"] == 660 and fieldbosses.describe().endswith("from the bundled file")
+    cog.session = Session(Resp(doc))                                              # the copy caught up: used again
+    assert await cog.fetch() == len(doc["bosses"]) and timers.FIELD_RESPAWNS["Newly Added Tyrant"] == 240
+
     # /setup show names the source.
     setup = guilds.ServerSetup()
     it = interaction(1); await setup.show.callback(setup, it)

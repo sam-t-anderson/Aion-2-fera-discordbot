@@ -14,7 +14,7 @@ import gamedata
 import heartbeat
 import util
 from timers import (ABYSS_CATEGORY, FIELD_CATEGORY, FIELD_FACTIONS, FIELD_RESPAWNS, WINDOW_DAYS, events_between,
-                    region_key)
+                    region_key, simple_name)
 
 log = logging.getLogger("aion2.timers")
 
@@ -73,8 +73,9 @@ def build_embed(guild_id: int, category: Optional[str] = None, max_chars: Option
             continue
         rows.append({"name": disp, "category": FIELD_CATEGORY, "reference": True,
                      "timing": f"respawn {fmt_minutes(mins)} after kill — not seen yet"})
+    timed = {simple_name(n) for n in have}            # "Argo, the Spirit King" has a real row as "Argo the Spirit King"
     for name, _zone, sched in gamedata.ABYSS_BOSSES:
-        if name.lower() not in have:
+        if simple_name(name) not in timed:
             rows.append({"name": name, "category": ABYSS_CATEGORY, "reference": True, "timing": sched})
     for r in rows:
         m = manual.get(r["name"].lower())

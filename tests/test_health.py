@@ -63,3 +63,18 @@ def test_offline_is_503(tmp_path):
     db.init(str(tmp_path / "t.db"))
     status, body = get(Bot(ready=False))
     assert status == 503 and body["status"] == "offline" and body["gateway_latency_ms"] is None
+
+
+def test_the_phase_and_the_commands_are_reported(tmp_path):
+    db.init(str(tmp_path / "t.db"))
+    starting = Bot(ready=False)
+    starting.phase, starting.commands_status = "connecting to Discord", "registering"
+    status, body = get(starting)
+    assert status == 503 and body["phase"] == "connecting to Discord" and body["commands"] == "registering"
+
+
+def test_the_database_is_not_opened_by_a_health_check():
+    """Before the bot opens the database the endpoint answers without it: a check must not run the migrations."""
+    with patch.object(db, "_conn", None), patch.object(db, "init", side_effect=AssertionError("opened by /health")):
+        status, body = get(Bot(ready=False))
+    assert status == 503 and set(body["sources_last_ok_age_seconds"].values()) == {None}

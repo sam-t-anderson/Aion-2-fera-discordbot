@@ -61,7 +61,7 @@ async def main():
     cog = timer_commands.Timers.__new__(timer_commands.Timers); cog.bot = Bot(); cog.session = Session(page)
     assert await cog.fetch_and_store() == "ok"
     assert db.meta_get("timers_region") == "Global"
-    assert db.conn().execute("SELECT COUNT(*) c FROM timer_rules").fetchone()["c"] == 13
+    assert db.conn().execute("SELECT COUNT(*) c FROM timer_rules").fetchone()["c"] == 14     # 13 + Argo, the Spirit King
     assert db.meta_get("timers_last_new") is None            # nothing announced on the first read
     # a page that switches to the Korean schedule is refused and the good schedule stays
     kr = page.replace("North America (East)", "Korea")
@@ -69,7 +69,7 @@ async def main():
     db.meta_set("timers_etag", "x")
     assert await cog.fetch_and_store() == "error"
     assert "Korea" in db.meta_get("timers_last_error")
-    assert db.conn().execute("SELECT COUNT(*) c FROM timer_rules").fetchone()["c"] == 13
+    assert db.conn().execute("SELECT COUNT(*) c FROM timer_rules").fetchone()["c"] == 14
     assert db.meta_get("timers_etag") is None
 
     # each Discord server follows its own region's clock
@@ -84,6 +84,22 @@ async def main():
     assert nxt(NA, "Arena of Tactics", now).strftime("%a %H:%M") == "Thu 15:00"
     embed = str(timer_board.build_embed(NA).to_dict())
     assert "Daily Reset" in embed and "no upcoming time found" not in embed and "NA East" in embed
+
+    # the 4 November 2026 patch notes, over a site that still shows the old schedule: the Artifact Siege and its
+    # three bosses on Thursdays and Saturdays only, Argo, the Spirit King at 10:30 and 22:30, all on each region's
+    # own clock (New York is UTC-5 and Berlin UTC+1 by then)
+    mon = datetime(2026, 11, 9, 0, 0, tzinfo=UTC)            # Monday 9 November, 00:00 UTC (Sunday 19:00 in New York)
+    assert ("Artifact Siege", "Abyss", "Mon, Thu, Sat at 21:00") in rows                    # what the page says
+    assert nxt(NA, "Artifact Siege", mon).strftime("%a %d %H:%M") == "Fri 13 02:00"         # Thu 21:00 EST, not Mon
+    assert nxt(EU, "Artifact Siege", mon).strftime("%a %d %H:%M") == "Thu 12 20:00"         # Thu 21:00 CET
+    assert nxt(NA, "Executor Tamasa", mon).strftime("%a %d %H:%M") == "Fri 13 02:30"
+    assert nxt(NA, "Argo, the Spirit King", mon).strftime("%a %d %H:%M") == "Mon 09 03:30"  # Sun 22:30 EST
+    assert nxt(EU, "Argo, the Spirit King", mon).strftime("%a %d %H:%M") == "Mon 09 09:30"  # Mon 10:30 CET
+    # a site that already shows the change, or anything else, is followed as it is
+    assert timers.official_schedule([("Artifact Siege", "Abyss", "Tue at 20:00")])[0][2] == "Tue at 20:00"
+    assert timers.official_schedule([("Artifact Siege", "Abyss", "Thu, Sat at 21:00")])[0][2] == "Thu, Sat at 21:00"
+    assert [r[0] for r in timers.official_schedule([("Argo the Spirit King", "World Bosses", "daily at 11:00")])] == \
+        ["Argo the Spirit King"]                             # listed by the site: not added twice
 
     # the checklist resets with those timers, and with a correction made by /timers set
     assert checklist.last_reset("daily", NA, now) == int(datetime(2026, 10, 7, 7, 0, tzinfo=UTC).timestamp())
@@ -106,11 +122,12 @@ async def main():
 
     # field bosses are known by name with their respawn
     assert timers.canonical(NA, "eternal gartua") == ("Eternal Gartua", "Field Bosses", None)
-    assert timers.field_respawn("soul ruler kashapa") == 360 and timers.field_respawn("Immortal Gartua") == 720
+    assert timers.field_respawn("soul ruler kashapa") == 360 and timers.field_respawn("Immortal Gartua") == 660   # 11 h
     assert timers.field_respawn("Silent Dartan (Verteron)") == 180 and timers.field_respawn("Silent Dartan (Altgard)") == 360
     assert timers.field_respawn("Silent Dartan") is None     # differs by zone, so the zone has to be picked
     picks = [c.name for c in timer_commands.Timers._name_choices(NA, "lagta")]
-    assert "High Commander Lagta (Verteron)" in picks and "High Commander Lagta (Altgard)" in picks, picks
+    assert "High Commander Lagta" in picks and not any("(" in p for p in picks), picks   # 11 h in both zones now
+    assert timers.field_respawn("High Commander Lagta") == 660
     assert {"Eternal Gartua", "Silent Dartan", "Soul Ruler Kashapa", "High Commander Lagta"} <= set(gamedata.field_boss_names())
     print("REGION OK")
 asyncio.run(main())

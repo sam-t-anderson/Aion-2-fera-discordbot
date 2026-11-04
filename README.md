@@ -55,7 +55,11 @@ Raid 10 (global first raid), Arena 4 (4v4), Faction PvP 10, World Boss 10, Rift 
 Sub-party size defaults to 5 (global party size), 4 for arena. Every event can override both.
 
 ## Health check
-`http://SERVER_IP:8099/health` returns 200 when the bot is connected to Discord and 503 otherwise. The JSON also
+`http://SERVER_IP:8099/health` returns 200 when the bot is connected to Discord and 503 otherwise. It answers from
+the moment the bot starts, before it logs in: `phase` says what the bot is doing (`logging in`, `loading`,
+`connecting to Discord`, `online`, `reconnecting to Discord`) and `commands` whether the slash commands are registered
+(they are sent to Discord only when they changed, beside the connection). A refused connection means the bot is not
+running at all; `docker logs --tail 50 aion2-checklist` says why. The JSON also
 lists each background job's last good round (`loops`; any that stopped show in `stale_loops`) and how long ago each
 outside source was last read (`sources_last_ok_age_seconds`). A monitor that should alert on a stuck job can look for
 `"stale_loops": []`.

@@ -1,9 +1,11 @@
 """Tiny web endpoint so Uptime Kuma, Homepage and Docker can see if the bot is online.
 
 It answers 200 while the bot is connected to Discord and 503 when it is not; Docker's health check and
-the updater go by that. The body also says when each background loop last finished a round
-(``loops``, and ``stale_loops`` for any that stopped) and how long ago each outside source was last
-read (``sources_last_ok_age_seconds``), for a monitor that wants to watch those too."""
+the updater go by that. It starts before the bot logs in, so it answers while the bot starts too:
+``phase`` says what the bot is doing (logging in, loading, connecting to Discord, online, reconnecting)
+and ``commands`` where the slash commands' registration stands. The body also says when each background
+loop last finished a round (``loops``, and ``stale_loops`` for any that stopped) and how long ago each
+outside source was last read (``sources_last_ok_age_seconds``), for a monitor that wants to watch those too."""
 
 import json
 import logging
@@ -24,11 +26,12 @@ SOURCES = {"timers": "timers_last_ok", "kill_feed": "kills_last_ok", "news": "ne
 
 
 def source_ages(now: int) -> dict:
-    """Seconds since each source was last read without error; None if never (or the database is busy)."""
+    """Seconds since each source was last read without error; None if never, or while the database is busy or
+    not opened yet (the endpoint answers from before the bot opens it)."""
     ages = {}
     for name, key in SOURCES.items():
         try:
-            v = db.meta_get(key)
+            v = db.meta_get(key) if db.is_open() else None
             ages[name] = now - int(v) if v else None
         except Exception:
             ages[name] = None
@@ -44,6 +47,8 @@ def build_app(bot) -> web.Application:
         loops = heartbeat.snapshot(now)
         body = {
             "status": "ok" if online else "offline",
+            "phase": getattr(bot, "phase", None),
+            "commands": getattr(bot, "commands_status", None),
             "gateway_latency_ms": round(latency * 1000) if latency == latency else None,
             "guilds": len(bot.guilds),
             "uptime_seconds": int(time.time() - STARTED),

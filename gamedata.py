@@ -25,6 +25,28 @@ OFFICIAL_REGIONS = {"na": "nae", "naw": "naw", "eu": "eu", "sa": "la", "jp": "as
 # Regions the site also offers that follow a different schedule; their page is not accepted.
 OTHER_REGIONS = ("Taiwan", "Korea")
 
+# Official schedule changes the timers site may not show yet, from the Global patch notes. Each is (timer name,
+# the timing the site showed before the change, the official timing, source). The official timing is used only
+# while the site still shows the old one: once the site follows the change, or shows anything else, the site's
+# own timing is used again. Clock times are each region's own server time, like the site's, so every region
+# keeps its local time (daylight saving included).
+PATCH_2026_11_04 = "Patch notes, 3 Nov (PST) / 4 Nov (CET) 2026"
+SCHEDULE_CHANGES = (
+    # "The Artifact Siege schedule will be changed from three times a week to twice a week (Thursdays and
+    # Saturdays) ... at the same time as before, 21:00", and the three Artifact Bosses with it, at 21:30.
+    ("Artifact Siege", "Mon, Thu, Sat at 21:00", "Thu, Sat at 21:00", PATCH_2026_11_04),
+    ("Executor Tamasa", "Mon, Thu, Sat at 21:30", "Thu, Sat at 21:30", PATCH_2026_11_04),
+    ("Executor Argo", "Mon, Thu, Sat at 21:30", "Thu, Sat at 21:30", PATCH_2026_11_04),
+    ("Executor Kaira", "Mon, Thu, Sat at 21:30", "Thu, Sat at 21:30", PATCH_2026_11_04),
+)
+# Officially scheduled timers the site does not list: (name, category, timing, source). The site's own row is
+# used once it lists the timer.
+SCHEDULE_ADDITIONS = (
+    # "The respawn time for the Abyss Field Boss Argo, the Spirit King will be changed. Will spawn twice daily at
+    # 10:30 and 22:30."
+    ("Argo, the Spirit King", "World Bosses", "daily at 10:30, 22:30", PATCH_2026_11_04),
+)
+
 # Which faction each field-boss starting zone belongs to. Used only as a fallback for the
 # built-in list below; the shared JSON carries an explicit faction per boss.
 ZONE_FACTION = {"Verteron": "elyos", "Altgard": "asmodian"}
@@ -44,7 +66,8 @@ _BUILTIN_FIELD_BOSSES = [
     ("Harvest Manager Moshav", "Verteron", 180), ("Sentinel K'nash", "Verteron", 120),
     ("Researcher Setram", "Verteron", 180), ("Phantasm Kasia", "Verteron", 360),
     ("Silent Dartan", "Verteron", 180), ("Soul Ruler Kashapa", "Verteron", 360),
-    ("High Commander Lagta", "Verteron", 360), ("Eternal Gartua", "Verteron", 360),
+    # 11 h for both factions since the 4 November 2026 patch (12 h before, the notes say)
+    ("High Commander Lagta", "Verteron", 660), ("Eternal Gartua", "Verteron", 660),
     ("Melted Danar", "Altgard", 30), ("Black Warrior Aed", "Altgard", 30),
     ("Faithful Rajit", "Altgard", 30), ("Berserker Vargor", "Altgard", 60),
     ("Blood Warrior Lannar", "Altgard", 90), ("Predator Garsan", "Altgard", 120),
@@ -56,16 +79,16 @@ _BUILTIN_FIELD_BOSSES = [
     ("Veteran Shujakan", "Altgard", 180), ("Visionary Karuka", "Altgard", 240),
     ("Dark Shadow Vishwada", "Altgard", 360), ("Sharp Shylak", "Altgard", 360),
     ("Silent Dartan", "Altgard", 360), ("Soul Ruler Kashapa", "Altgard", 360),
-    ("High Commander Lagta", "Altgard", 720), ("Immortal Gartua", "Altgard", 720),
+    ("High Commander Lagta", "Altgard", 660), ("Immortal Gartua", "Altgard", 660),
 ]
 # Contested Abyss / Reshanta field bosses (shown to both factions). (name, zone, schedule text)
 _BUILTIN_ABYSS = [
     ("Watcher Kaira", "Chaotic Lower Reshanta", "every 3h from 01:00 server time"),
-    ("Executor Tamasa", "Chaotic Lower Reshanta", "Mon, Thu, Sat 21:30 server time (after Artifact Siege)"),
-    ("Executor Argo", "Siel's Heart", "Mon, Thu, Sat 21:30 server time (after Artifact Siege)"),
-    ("Executor Kaira", "Branding Island", "Mon, Thu, Sat 21:30 server time (after Artifact Siege)"),
+    ("Executor Tamasa", "Chaotic Lower Reshanta", "Thu and Sat 21:30 server time (after Artifact Siege)"),
+    ("Executor Argo", "Siel's Heart", "Thu and Sat 21:30 server time (after Artifact Siege)"),
+    ("Executor Kaira", "Branding Island", "Thu and Sat 21:30 server time (after Artifact Siege)"),
     ("Guardian Lord Nahma", "Chaotic Lower Reshanta", "Fri and Sun 21:00 server time"),
-    ("Argo the Spirit King", "Chaotic Lower Reshanta", "no reliable community timer yet — confirm in game"),
+    ("Argo, the Spirit King", "Chaotic Lower Reshanta", "daily at 10:30 and 22:30 server time"),
 ]
 
 _FIELD_BOSSES_JSON = Path(__file__).resolve().parent / "assets" / "field-bosses.json"

@@ -9,6 +9,7 @@ or unreadable, the bot falls back to the built-in list below so timers never bre
 Names are spelled as in the Global client. Field boss respawns count from the kill."""
 
 import json
+import re
 from pathlib import Path
 
 # Each Global region runs the same schedule on its own local server clock (the timers
@@ -142,14 +143,39 @@ def _load():
         return field, list(_BUILTIN_ABYSS), faction
 
 
+def checked_at(doc) -> str:
+    """The day a field-bosses document says it was last checked ("YYYY-MM-DD"), or "" if it doesn't say."""
+    value = doc.get("checked_at") if isinstance(doc, dict) else None
+    return value if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) else ""
+
+
+def _bundled_checked_at() -> str:
+    try:
+        doc = json.loads(_FIELD_BOSSES_JSON.read_text(encoding="utf-8"))
+        parse(doc)
+        return checked_at(doc)
+    except (OSError, ValueError, KeyError, TypeError):
+        return ""                                     # the built-in list: any valid published copy is newer
+
+
 FIELD_BOSSES, ABYSS_BOSSES, _FIELD_FACTION = _load()
+# When the bundled file was checked. fieldbosses.py doesn't use a published copy checked before it.
+BUNDLED_CHECKED_AT = _bundled_checked_at()
 
 
 def apply(doc) -> int:
     """Replace the live tables with a validated document, in place, so every module holding
     FIELD_BOSSES / ABYSS_BOSSES keeps working (timers.py refreshes its derived maps itself).
     Returns the number of bosses taken. An invalid document raises and changes nothing."""
-    field, abyss, faction = parse(doc)
+    return _swap(*parse(doc))
+
+
+def apply_bundled() -> int:
+    """Put the bundled tables (or the built-in fallback) back in place, like ``apply``."""
+    return _swap(*_load())
+
+
+def _swap(field, abyss, faction) -> int:
     FIELD_BOSSES[:] = field
     ABYSS_BOSSES[:] = abyss
     _FIELD_FACTION.clear()

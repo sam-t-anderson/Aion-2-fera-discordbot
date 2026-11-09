@@ -1,4 +1,4 @@
-"""Tiny web endpoint so Uptime Kuma, Homepage and Docker can see if the bot is online.
+"""Tiny web endpoint so Docker, the updater and any monitoring can see if the bot is online.
 
 It answers 200 while the bot is connected to Discord and 503 when it is not; Docker's health check and
 the updater go by that. It starts before the bot logs in, so it answers while the bot starts too:

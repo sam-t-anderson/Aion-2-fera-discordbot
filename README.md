@@ -106,6 +106,9 @@ project notes.
 ## Dependencies
 `requirements.txt` pins every package with hashes; it is generated from `requirements.in` (the command is in its
 header). Dependabot proposes updates as pull requests, and CI has to pass on them before they can be merged.
+The Dockerfile pins its `python:3.12-slim` base image by digest, and Dependabot proposes each new build of it the
+same way. Every build then uses the same image, and its security fixes arrive as reviewed changes: `docker compose
+up --build` alone keeps whichever image the host pulled first.
 
 ## Security
 Please report a security problem privately, through GitHub's

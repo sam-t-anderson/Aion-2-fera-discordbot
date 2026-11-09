@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+# Pinned by digest, so every build uses the same image: Dependabot proposes each new build of 3.12-slim
+# (Python patch releases, Debian security fixes) as a pull request (.github/dependabot.yml).
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 WORKDIR /app
 # The bot starts as root, gives the mounted data folder to this user and then runs as it (privileges.py).
 # uid 1000 is usually the host's first account, so the data folder stays easy to back up there.

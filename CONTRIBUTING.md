@@ -96,6 +96,7 @@ These rules come from bugs fixed the hard way, and the tests enforce several of 
   - `docs/GUIDE-full.md` is the same guide plus the hosting notes, so keep the two in step.
 - **Dependencies.** Change `requirements.in`, then regenerate `requirements.txt` with the `pip-compile` command
   in its header. Every package is pinned with hashes.
+  The Docker base image is pinned by digest, and Dependabot proposes its new builds.
 - **Player-facing text.**
   - Keep it plain and friendly, and label admin-only features "(admins)" or "(officers)".
   - An embed holds at most 4096 characters of description and 6000 in all.

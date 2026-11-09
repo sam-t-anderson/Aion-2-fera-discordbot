@@ -1,5 +1,5 @@
-# Weekly update proposals for the pinned Python packages and the GitHub Actions in CI. Each one is a
-# pull request; CI runs on it, and merging it is the deploy, as with any change.
+# Weekly update proposals for the pinned Python packages, the Docker base image and the GitHub Actions in CI.
+# Each one is a pull request; CI runs on it, and merging it is the deploy, as with any change.
 version: 2
 updates:
   - package-ecosystem: pip
@@ -16,3 +16,13 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  # The Dockerfile's base image, pinned by digest: a new build of python:3.12-slim (Python patch releases, Debian
+  # security fixes) comes as a new digest. A newer Python is a deliberate change, with CI's Python moved with it,
+  # so 3.13 and later are not proposed.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

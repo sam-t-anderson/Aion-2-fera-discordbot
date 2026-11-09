@@ -111,3 +111,11 @@ header). Dependabot proposes updates as pull requests, and CI has to pass on the
 Please report a security problem privately, through GitHub's
 [Report a vulnerability](https://github.com/sam-t-anderson/Aion-2-fera-discordbot/security/advisories/new) form,
 not in a public issue. [SECURITY.md](SECURITY.md) says what to include, what is in scope and how to test safely.
+
+## Contributing
+[CONTRIBUTING.md](CONTRIBUTING.md) has the setup, the checks CI runs and the rules the tests enforce, and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) how we treat each other. [ACCESSIBILITY.md](ACCESSIBILITY.md) says what the
+bot does for people who use a screen reader or a keyboard, and its known gaps.
+
+## License
+Fera is free software under the GNU General Public License v3.0: see [LICENSE](LICENSE).

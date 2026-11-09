@@ -106,3 +106,8 @@ project notes.
 ## Dependencies
 `requirements.txt` pins every package with hashes; it is generated from `requirements.in` (the command is in its
 header). Dependabot proposes updates as pull requests, and CI has to pass on them before they can be merged.
+
+## Security
+Please report a security problem privately, through GitHub's
+[Report a vulnerability](https://github.com/sam-t-anderson/Aion-2-fera-discordbot/security/advisories/new) form,
+not in a public issue. [SECURITY.md](SECURITY.md) says what to include, what is in scope and how to test safely.

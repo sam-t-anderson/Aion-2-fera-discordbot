@@ -4,8 +4,8 @@ Sam's public, multi-server Discord bot for AION 2. Anyone can invite it and it w
 Python 3.12 (Docker), discord.py 2.x, SQLite. Dependencies are pinned with hashes in `requirements.txt`, compiled from `requirements.in` with pip-compile (command in its header); Dependabot (`.github/dependabot.yml`) proposes updates weekly as PRs, and CI must pass on them like any change. Test tools: `requirements-dev.txt`.
 
 ## Where it runs
-- Home server `island` (Ubuntu, 192.168.1.101), user `sam`. Stack dir `/opt/stacks/aion2-checklist`, container `aion2-checklist`.
-- Health endpoint: container port 8080, host port 8099 (`curl localhost:8099/health`). Monitored by Uptime Kuma, shown on Homepage.
+- The hosted bot runs in Docker on the owner's own server, from a Git checkout of this repository on `main` (the stack folder). The container is `aion2-checklist`.
+- Health endpoint: container port 8080, host port 8099 (`curl localhost:8099/health` on the host), which the host's monitoring watches.
 - Config in `.env` on the server (never in git). Data in `./data/checklist.db` (never in git). Back up `data/` before upgrades. The database runs in WAL mode, so it is `checklist.db` plus `checklist.db-wal` and `-shm`: copy the whole folder, never the `.db` file alone.
 - The container starts as root, gives `/data` to the image's `bot` user (uid 1000, `BOT_USER`) and drops root before it connects (`privileges.py`), so on the host `data/` belongs to uid 1000. If the folder can't be handed over it logs a warning and runs as root as before. No `USER` line in the Dockerfile on purpose: a host-owned `data/` would leave the bot unable to write after an upgrade.
 - `docker-compose.yml` has `init: true` (tini as PID 1) so Docker health-check processes don't pile up as zombies.
@@ -13,9 +13,8 @@ Python 3.12 (Docker), discord.py 2.x, SQLite. Dependencies are pinned with hashe
 ## Deploy / upgrade (Sam wants copy-paste commands, not "edit file X")
 Normally automatic: merging to `main` is the deploy. `deploy/aion2bot-update.sh` runs from a systemd timer every 15 min (`deploy/enable-updates.sh` installs it), and only installs a `main` commit whose GitHub Actions workflow named `CI` passed, so keep the tests green and don't rename that workflow. It copies `data/` to `data.bak-auto-*`, fast-forwards, runs `docker compose up -d --build` and waits for Docker's health check. Force a check with `sudo systemctl start aion2bot-update`; read the result with `sudo journalctl -u aion2bot-update -n 40 --no-pager`. The stack dir must stay a clean `main` checkout (no edits to tracked files on the server).
 
-By hand:
+By hand, from the stack folder:
 ```bash
-cd /opt/stacks/aion2-checklist
 sudo cp -a data data.bak-$(date +%F)
 git pull --ff-only origin main
 docker compose up -d --build

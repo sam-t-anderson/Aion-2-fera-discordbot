@@ -67,7 +67,7 @@ class AionBot(commands.Bot):
 
     async def start(self, token: str, *, reconnect: bool = True) -> None:
         # The health endpoint comes up before anything that can wait or fail (the login, the database, the
-        # command registration), so Docker, Uptime Kuma and the updater always get an answer: 503 with what
+        # command registration), so Docker, monitoring and the updater always get an answer: 503 with what
         # the bot is doing until it is connected to Discord, then 200. It used to start last, so a start that
         # stalled or failed showed only as "Connection refused".
         if self._health_runner is None:

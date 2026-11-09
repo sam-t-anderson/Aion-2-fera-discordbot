@@ -179,7 +179,7 @@ The built-in raids are Central Abyss Fusion Reactor, Isolation Specialist Rahu, 
 
 ## Running the bot
 
-This section is for whoever hosts the bot. The bot runs in Docker on the home server, in `/opt/stacks/aion2-checklist`. Settings live in its `.env` file.
+This section is for whoever hosts the bot. The bot runs in Docker from a Git checkout of this repository, the stack folder. Settings live in that folder's `.env` file.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -210,7 +210,7 @@ After changing `.env`, run `docker compose up -d` in the folder.
 
 **Health**
 
-The page `http://192.168.1.101:8099/health` returns 200 while the bot is connected to Discord and 503 otherwise. It answers from the moment the bot starts: while the bot is not online, `phase` says what it is doing (logging in, loading, connecting to Discord, reconnecting) and `commands` whether the slash commands are registered. If the page does not answer at all, the bot is not running, and its log says why: `docker logs aion2-checklist --tail 50`. Uptime Kuma and Homepage watch it, and it reports how many servers the bot is in.
+The page `http://SERVER_IP:8099/health` returns 200 while the bot is connected to Discord and 503 otherwise. It answers from the moment the bot starts: while the bot is not online, `phase` says what it is doing (logging in, loading, connecting to Discord, reconnecting) and `commands` whether the slash commands are registered. If the page does not answer at all, the bot is not running, and its log says why: `docker logs aion2-checklist --tail 50`. A monitoring tool can watch it, and it reports how many servers the bot is in.
 
 **Upgrading**
 

@@ -63,5 +63,5 @@ NEWS_MINUTES = max(5, _int("NEWS_MINUTES", 15))
 NEWS_MAX_PER_CYCLE = max(1, _int("NEWS_MAX_PER_CYCLE", 5))
 USER_AGENT = "AION2DiscordBot/2.0 (personal server bot; checks every 15 min)"
 
-# Health endpoint for Uptime Kuma / Homepage (port inside the container)
+# Health endpoint for Docker, the updater and any monitoring (port inside the container)
 HEALTH_PORT = _int("HEALTH_PORT", 8080)
